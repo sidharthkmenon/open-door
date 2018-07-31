@@ -99,7 +99,10 @@ def inception_block_3(X):
     X_1x1 = Activation('relu')(X_1x1)
 
     # CONCAT
-    inception = concatenate([X_3x3, X_5x5, X_pool, X_1x1], axis=1)
+#     arr = [X_3x3, X_5x5, X_pool, X_1x1]
+#     for layer in arr:
+#         print layer.shape
+    inception = concatenate([X_3x3, X_5x5, X_pool, X_1x1], axis=-1)
 
     X_3x3 = Conv2D(96, (1, 1), name='inception_3b_3x3_conv1')(inception)
     X_3x3 = BatchNormalization(axis=1, epsilon=0.00001, name='inception_3b_3x3_bn1')(X_3x3)
@@ -127,8 +130,9 @@ def inception_block_3(X):
     X_1x1 = BatchNormalization(axis=1, epsilon=0.00001, name='inception_3b_1x1_bn')(X_1x1)
     X_1x1 = Activation('relu')(X_1x1)
 
-    inception = concatenate([X_3x3, X_5x5, X_pool, X_1x1], axis=1)
-
+    inception = concatenate([X_3x3, X_5x5, X_pool, X_1x1], axis=-1)
+    print inception.shape
+    
     X_3x3 = conv2d_bn(inception,
         layer='inception_5b_3x3',
         cv1_out=96,
@@ -137,7 +141,9 @@ def inception_block_3(X):
         cv2_filter=(3, 3),
         cv2_strides=(1, 1),
         padding=(1, 1))
-    X_pool = MaxPooling2D(pool_size=3, strides=2)(inception)
+    
+    
+    X_pool = MaxPooling2D(pool_size=3, strides=1)(inception)
     X_pool = conv2d_bn(X_pool,
                            layer='inception_5b_pool',
                            cv1_out=96,
@@ -148,7 +154,7 @@ def inception_block_3(X):
                            layer='inception_5b_1x1',
                            cv1_out=256,
                            cv1_filter=(1, 1))
-    inception = concatenate([X_3x3, X_pool, X_1x1], axis=1)
+    inception = concatenate([X_3x3, X_pool, X_1x1], axis=-1)
 
     return inception
 
@@ -158,21 +164,26 @@ def inception_network(X_input):
     return X
 
 def inception_lstm_model_a(input_shape):
-
-    X_input = Input(input_shape)
+    print "START"
+    X_input = Input(input_shape[1:])
     model = inception_network(X_input)
     model = AveragePooling2D(pool_size = (3,3), strides=(1,1))(model)
     model = Flatten()(model)
-    model = Dense(128, name="dense_1")(model)
-    model = TimeDistributed(model)
-    model = LSTM(128)(model)
-    model = Dense(9, name="dense_2",
-        activity_regularizer=regularizers.l2(0.01))(model)
+    model = Dense(128, activation="relu", name="dense_1")(model)
+    model = Model(inputs=X_input, outputs=model)
+    model_input = Input(shape=input_shape)
+    model = TimeDistributed(model)(model_input)
+    model = LSTM(32)(model)
+    model = Dense(9, activation="relu", name="dense_2",
+        activity_regularizer=l2(0.01))(model)
     model = Dense(1, activation='sigmoid', name='result')(model)
     model = Lambda(lambda x: K.l2_normalize(x,axis=1))(model)
 
-    model = Model(inputs=X_input, outputs=model, name='deep_inception_lstm')
+    model = Model(inputs=model_input, outputs=model, name='deep_inception_lstm')
     return model
+
+m = inception_lstm_model_a((400, 96, 96, 3))
+m.compile(optimizer='adam', loss='binary_crossentropy', metrics = ['accuracy'])
 # 3-layer CNN to 2 LSTM
 
 # 3-layer CNN to 1 GRU
