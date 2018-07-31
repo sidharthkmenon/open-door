@@ -469,3 +469,45 @@ simple_LSTM.compile(optimizer='adam',
 # Non-trainable params: 212
 # _________________________________________________________________
 # None
+
+def simple_GRU_model(input_shape):
+    X_input = Input(input_shape[1:])
+    model = starter_layers(X_input)
+    model = Conv2D(128, (3,3), name='simp_4conv')(model)
+    model = BatchNormalization(axis=1, epsilon=0.00001, name='simp_4bn')(model)
+    model = Activation('relu')(model)
+    model = AveragePooling2D(pool_size = (3,3), strides=(1,1))(model)
+    model = Flatten()(model)
+    model = Dense(256, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    model = Model(inputs=X_input, outputs=model)
+    model_input = Input(input_shape)
+    model = TimeDistributed(model)(model_input)
+    model = GRU(128)(model)
+    model = Dense(1, activation='sigmoid')(model)
+
+    model = Model(inputs=model_input, outputs=model, name="simple CNN LSTM")
+    return model
+
+
+simple_GRU = simple_GRU_model((400, 96, 96, 3))
+simple_GRU.compile(optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy'])
+# model summary
+# _________________________________________________________________
+# Layer (type)                 Output Shape              Param #
+# =================================================================
+# input_24 (InputLayer)        (None, 400, 96, 96, 3)    0
+# _________________________________________________________________
+# time_distributed_10 (TimeDis (None, 400, 256)          2443560
+# _________________________________________________________________
+# gru_2 (GRU)                  (None, 128)               147840
+# _________________________________________________________________
+# dense_13 (Dense)             (None, 1)                 129
+# =================================================================
+# Total params: 2,591,529
+# Trainable params: 2,591,317
+# Non-trainable params: 212
+# _________________________________________________________________
+# None
