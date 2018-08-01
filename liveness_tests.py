@@ -15,6 +15,8 @@ from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.layers.core import Lambda, Flatten, Dense
 import h5py
 import matplotlib.pyplot as plt
+from numpy.random import seed
+import time as time
 
 def conv2d_bn(x,
               layer=None,
@@ -186,7 +188,7 @@ def inception_lstm_model_a(input_shape):
     return model
 
 
-inception_lstm_a = inception_lstm_model_a((400, 96, 96, 3))
+inception_lstm_a = inception_lstm_model_a((50, 96, 96, 3))
 inception_lstm_a.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
@@ -229,7 +231,7 @@ def inception_lstm_model_b(input_shape):
     return model
 
 
-inception_lstm_b = inception_lstm_model_b((400, 96, 96, 3))
+inception_lstm_b = inception_lstm_model_b((50, 96, 96, 3))
 inception_lstm_b.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
@@ -271,7 +273,7 @@ def inception_lstm_model_c(input_shape):
     return model
 
 
-inception_lstm_c = inception_lstm_model_c((400, 96, 96, 3))
+inception_lstm_c = inception_lstm_model_c((50, 96, 96, 3))
 inception_lstm_c.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
@@ -315,7 +317,7 @@ def inception_gru_model_a(input_shape):
     model = Model(inputs=model_input, outputs=model, name='deep_inception_gru')
     return model
 
-inception_gru_a = inception_gru_model_a((400, 96, 96, 3))
+inception_gru_a = inception_gru_model_a((50, 96, 96, 3))
 inception_gru_a.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
@@ -447,7 +449,7 @@ def simple_LSTM_model(input_shape):
     return model
 
 
-simple_LSTM = simple_LSTM_model((400, 96, 96, 3))
+simple_LSTM = simple_LSTM_model((50, 96, 96, 3))
 simple_LSTM.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
@@ -466,6 +468,48 @@ simple_LSTM.compile(optimizer='adam',
 # =================================================================
 # Total params: 2,640,809
 # Trainable params: 2,640,597
+# Non-trainable params: 212
+# _________________________________________________________________
+# None
+
+def simple_LSTM_model_2(input_shape):
+    X_input = Input(input_shape[1:])
+    model = starter_layers(X_input)
+    model = Conv2D(128, (3,3), name='simp_4conv')(model)
+    model = BatchNormalization(axis=1, epsilon=0.00001, name='simp_4bn')(model)
+    model = Activation('relu')(model)
+    model = AveragePooling2D(pool_size = (3,3), strides=(1,1))(model)
+    model = Flatten()(model)
+    model = Dense(256, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    model = Model(inputs=X_input, outputs=model)
+    model_input = Input(input_shape)
+    model = TimeDistributed(model)(model_input)
+    model = LSTM(64)(model)
+    model = Dense(1, activation='sigmoid')(model)
+
+    model = Model(inputs=model_input, outputs=model, name="simple CNN LSTM")
+    return model
+
+
+simple_LSTM_2 = simple_LSTM_model_2((50, 96, 96, 3))
+simple_LSTM_2.compile(optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy'])
+# model summary
+# _________________________________________________________________
+# Layer (type)                 Output Shape              Param #
+# =================================================================
+# input_28 (InputLayer)        (None, 50, 96, 96, 3)     0
+# _________________________________________________________________
+# time_distributed_13 (TimeDis (None, 50, 256)           2443560
+# _________________________________________________________________
+# lstm_11 (LSTM)               (None, 64)                82176
+# _________________________________________________________________
+# dense_13 (Dense)             (None, 1)                 65
+# =================================================================
+# Total params: 2,525,801
+# Trainable params: 2,525,589
 # Non-trainable params: 212
 # _________________________________________________________________
 # None
@@ -490,7 +534,7 @@ def simple_GRU_model(input_shape):
     return model
 
 
-simple_GRU = simple_GRU_model((400, 96, 96, 3))
+simple_GRU = simple_GRU_model((50, 96, 96, 3))
 simple_GRU.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
@@ -511,3 +555,64 @@ simple_GRU.compile(optimizer='adam',
 # Non-trainable params: 212
 # _________________________________________________________________
 # None
+
+def simple_GRU_model_2(input_shape):
+    X_input = Input(input_shape[1:])
+    model = starter_layers(X_input)
+    model = Conv2D(128, (3,3), name='simp_4conv')(model)
+    model = BatchNormalization(axis=1, epsilon=0.00001, name='simp_4bn')(model)
+    model = Activation('relu')(model)
+    model = AveragePooling2D(pool_size = (3,3), strides=(1,1))(model)
+    model = Flatten()(model)
+    model = Dense(256, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    model = Model(inputs=X_input, outputs=model)
+    model_input = Input(input_shape)
+    model = TimeDistributed(model)(model_input)
+    model = GRU(64)(model)
+    model = Dense(1, activation='sigmoid')(model)
+
+    model = Model(inputs=model_input, outputs=model, name="simple CNN LSTM")
+    return model
+
+
+simple_GRU_2 = simple_GRU_model_2((50, 96, 96, 3))
+simple_GRU_2.compile(optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy'])
+# model summary
+# _________________________________________________________________
+# Layer (type)                 Output Shape              Param #
+# =================================================================
+# input_30 (InputLayer)        (None, 50, 96, 96, 3)     0
+# _________________________________________________________________
+# time_distributed_14 (TimeDis (None, 50, 256)           2443560
+# _________________________________________________________________
+# gru_5 (GRU)                  (None, 64)                61632
+# _________________________________________________________________
+# dense_15 (Dense)             (None, 1)                 65
+# =================================================================
+# Total params: 2,505,257
+# Trainable params: 2,505,045
+# Non-trainable params: 212
+# _________________________________________________________________
+# None
+
+def check_model(model, X_input):
+    start = time.time()
+    print model.predict(x=X_input)
+    return time.time() - start
+
+r = seed(1)
+X_input = np.random.rand(1, 50, 96, 96, 3)
+check_model(simple_GRU_2, X_input)
+# times for models to run on one forward pass on my mac (2.8 GHz)
+# simple CNN: 0.013265132904052734
+# simple GRU: 0.7893438339233398
+# simple GRU-2: 0.805243968963623
+# simple LSTM 2: 0.8088140487670898
+# simple LSTM: 0.8190209865570068
+# Inception-LSTM c: 1.3269569873809814
+# Inception-GRU a: 1.3289849758148193
+# Inception-LSTM b: 1.337082862854004
+# Inception-LSTM a: 1.3395531177520752
