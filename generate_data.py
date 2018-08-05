@@ -2,6 +2,10 @@ import numpy as np
 import cv2
 import os
 from os import listdir
+import pandas as pd
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from matplotlib import pyplot as plt
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -73,7 +77,9 @@ def prepData():
                 frameNum = 0
                 while(frameNum < 30):
                     frameNum = frameNum + 1
-                    _, frame = vid.read()
+                    retVal, frame = vid.read()
+                    if not retVal:
+                        print (index, dir, fileName, frameNum)
                     frame = toVertical(frame, dir)
                     frame = cv2.resize(frame, None, fx=1.8, fy=1.8)
                     frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_AREA)
@@ -95,3 +101,56 @@ X_data, Y_data = prepData()
 np.save("xdata.npy", X_data)
 np.save("ydata.npy", Y_data)
 print "saved"
+
+def shuffle_in_unison(x, y):
+    state = np.random.get_state()
+    np.random.shuffle(x)
+    np.random.set_state(state)
+    np.random.shuffle(y)
+
+
+# test method
+# a = np.asarray([1, 2, 3])
+# b = np.asarray([4, 5, 6])
+# shuffle_in_unison(a, b)
+# print a
+# print b
+
+# n = np.zeros((1336, 30, 96, 96, 1))
+#
+# n = n.reshape(-1, 96, 96, 1)
+#
+# print n.shape
+
+# load and shuffle data
+def loadAndShuffle():
+    X_data = np.load("xdata.npy")
+    Y_data = np.load("ydata.npy")
+    shuffle_in_unison(X_data, Y_data)
+    return X_data, Y_data
+
+X_data = np.load("xdata.npy")
+Y_data = np.load("ydata.npy")
+print X_data[1, 1, :, :, 1]
+
+# given input data, generate training and test sets (CV will be done in .fit)
+def finishData(X_data, Y_data):
+    seed = 7
+    np.random.seed(seed)
+    X_train, X_test, Y_train, Y_test = train_test_split(X_data, Y_data,
+        test_size=.10, random_state=seed)
+    return X_train, X_test, Y_train, Y_test
+
+# load data not in time series
+def loadCNNData():
+    X_data = np.load("xdata.npy")
+    Y_data = np.load("ydata.npy")
+    X_data = X_data.reshape(-1, 96, 96, 3)
+    Y_data = np.repeat(Y_data, 30)
+    shuffle_in_unison(X_data, Y_data)
+    return finishData(X_data, Y_data)
+
+# load data for time series
+def loadTimeData():
+    X_data, Y_data = loadAndShuffle()
+    return finishData(X_data, Y_data)
