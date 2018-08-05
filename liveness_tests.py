@@ -1,8 +1,7 @@
-import tensorflow as tf
 import numpy as np
 import os
 import cv2
-from numpy import genfromtxt
+import tensorflow as tf
 import keras.backend as K
 from keras.layers import \
     TimeDistributed, Conv2D, ZeroPadding2D, \
@@ -13,7 +12,6 @@ from keras.layers.normalization import BatchNormalization
 from keras.regularizers import l2
 from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.layers.core import Lambda, Flatten, Dense
-import h5py
 import matplotlib.pyplot as plt
 from numpy.random import seed
 import time as time
@@ -575,7 +573,6 @@ def simple_GRU_model_2(input_shape):
     model = Model(inputs=model_input, outputs=model, name="simple CNN LSTM")
     return model
 
-
 simple_GRU_2 = simple_GRU_model_2((50, 96, 96, 3))
 simple_GRU_2.compile(optimizer='adam',
     loss='binary_crossentropy',
@@ -598,10 +595,12 @@ simple_GRU_2.compile(optimizer='adam',
 # _________________________________________________________________
 # None
 
+
 def check_model(model, X_input):
     start = time.time()
     print model.predict(x=X_input)
     return time.time() - start
+
 
 r = seed(1)
 X_input = np.random.rand(1, 50, 96, 96, 3)
