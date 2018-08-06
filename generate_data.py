@@ -10,9 +10,9 @@ from matplotlib import pyplot as plt
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
 
-target = projectPath + "7/Down/Vl_NT_HS_wg_E_7_120.mp4"
-target2 = projectPath + "7/Left/G_NT_HS_wg_E_7_6.mp4"
-target3 = projectPath + "7/Right/G_NT_5s_wg_E_7_1.mp4"
+# target = projectPath + "7/Down/Vl_NT_HS_wg_E_7_120.mp4"
+# target2 = projectPath + "7/Left/G_NT_HS_wg_E_7_6.mp4"
+# target3 = projectPath + "7/Right/G_NT_5s_wg_E_7_1.mp4"
 
 
 
@@ -97,10 +97,10 @@ def prepData():
     print Y_data.shape
     return X_data, Y_data
 
-X_data, Y_data = prepData()
-np.save("xdata.npy", X_data)
-np.save("ydata.npy", Y_data)
-print "saved"
+# X_data, Y_data = prepData()
+# np.save("xdata.npy", X_data)
+# np.save("ydata.npy", Y_data)
+# print "saved"
 
 def shuffle_in_unison(x, y):
     state = np.random.get_state()
@@ -129,16 +129,13 @@ def loadAndShuffle():
     shuffle_in_unison(X_data, Y_data)
     return X_data, Y_data
 
-X_data = np.load("xdata.npy")
-Y_data = np.load("ydata.npy")
-print X_data[1, 1, :, :, 1]
+# X_data = np.load("xdata.npy")
+# Y_data = np.load("ydata.npy")
+# print X_data[1, 1, :, :, 1]
 
 # given input data, generate training and test sets (CV will be done in .fit)
 def finishData(X_data, Y_data):
-    seed = 7
-    np.random.seed(seed)
-    X_train, X_test, Y_train, Y_test = train_test_split(X_data, Y_data,
-        test_size=.10, random_state=seed)
+    X_train, X_test, Y_train, Y_test = train_test_split(X_data, Y_data, test_size=.10)
     return X_train, X_test, Y_train, Y_test
 
 # load data not in time series

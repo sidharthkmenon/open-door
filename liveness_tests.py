@@ -15,6 +15,7 @@ from keras.layers.core import Lambda, Flatten, Dense
 import matplotlib.pyplot as plt
 from numpy.random import seed
 import time as time
+import liveness_tests
 
 def conv2d_bn(x,
               layer=None,
@@ -615,3 +616,7 @@ check_model(simple_GRU_2, X_input)
 # Inception-GRU a: 1.3289849758148193
 # Inception-LSTM b: 1.337082862854004
 # Inception-LSTM a: 1.3395531177520752
+
+def trainCNN():
+    X_train, X_test, Y_train, Y_test = loadCNNData()
+    simple.fit(X_train, Y_train, validation_split=.25, )
