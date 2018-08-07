@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
+import resource
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -63,11 +64,15 @@ def toVertical(img, dir):
 #     cv2.destroyAllWindows()
 #     x = x + 1
 
+# _, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
+# resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
+# _, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
+# resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
 def prepData():
     X_data = []
     Y_data = []
     yEval = lambda s: 1 if (s[0] == "G") else 0
-    for index in map(str, [7, 9, 10, 14, 15, 18, 20, 23]):
+    for index in map(str, [2, 3, 4, 5, 6, 11, 12, 13, 16, 17, 21, 22, 7, 9, 10, 14, 15, 18, 20, 23]):
         for dir in ["Up", "Down", "Left", "Right"]:
             folderPath = projectPath + index + "/" + dir
             for fileName in os.listdir(folderPath):
@@ -75,7 +80,7 @@ def prepData():
                 vid = cv2.VideoCapture(filePath)
                 res = []
                 frameNum = 0
-                while(frameNum < 30):
+                while(frameNum < 15):
                     frameNum = frameNum + 1
                     retVal, frame = vid.read()
                     if not retVal:
@@ -98,9 +103,20 @@ def prepData():
     return X_data, Y_data
 
 # X_data, Y_data = prepData()
+# # X_old = np.old("xdata.npy")
+# # Y_old = np.load("ydata.npy")
+# # X_data = np.concatenate((X_old, X_data))
+# # Y_data = np.concatenate((Y_old, Y_data))
 # np.save("xdata.npy", X_data)
 # np.save("ydata.npy", Y_data)
 # print "saved"
+
+
+# TODO: CHANGED THE VIDEO LENGTH TO 15 FRAMES
+# test = np.zeros((12, 30, 96, 96, 3))
+# test2 = np.zeros((18, 30, 96, 96, 3))
+# test = np.concatenate((test2, test))
+# print test.shape
 
 def shuffle_in_unison(x, y):
     state = np.random.get_state()
@@ -117,9 +133,7 @@ def shuffle_in_unison(x, y):
 # print b
 
 # n = np.zeros((1336, 30, 96, 96, 1))
-#
 # n = n.reshape(-1, 96, 96, 1)
-#
 # print n.shape
 
 # load and shuffle data
@@ -142,12 +156,12 @@ def finishData(X_data, Y_data):
 def loadCNNData():
     X_data = np.load("xdata.npy")
     Y_data = np.load("ydata.npy")
-    X_data = X_data.reshape(-1, 96, 96, 3)
-    Y_data = np.repeat(Y_data, 30)
     shuffle_in_unison(X_data, Y_data)
+    X_data = X_data.reshape(-1, 96, 96, 3)
+    Y_data = np.repeat(Y_data, 15)
     return finishData(X_data, Y_data)
 
 # load data for time series
 def loadTimeData():
     X_data, Y_data = loadAndShuffle()
-    return finishData(X_data, Y_data)
+    return train_test_split(X_data, Y_data, test_size=.10)

@@ -12,10 +12,12 @@ from keras.layers.normalization import BatchNormalization
 from keras.regularizers import l2
 from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.layers.core import Lambda, Flatten, Dense
+from keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
 from numpy.random import seed
 import time as time
-import liveness_tests
+import h5py
+from generate_data import loadCNNData, loadTimeData
 
 def conv2d_bn(x,
               layer=None,
@@ -360,10 +362,52 @@ def simple_model(input_shape):
     return model
 
 
-simple = simple_model((96, 96, 3))
-simple.compile(optimizer='adam',
-    loss='binary_crossentropy',
-    metrics=['accuracy'])
+
+# trainCNN()
+# _, X_test, _, Y_test = loadCNNData()
+# test_performance = simple.evaluate(X_test, Y_test)
+# print test_performance
+
+# 4008/4008 [==============================] - 64s 16ms/step
+# [0.37460548006845806, 0.77919161676646709]
+
+# path = "/Users/sidharthmenon/Desktop/sid-fake.jpeg"
+# frame = cv2.imread(path, 1)
+# frame = cv2.resize(frame, None, fx=1.8, fy=1.8)
+# frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_AREA)
+# frame = frame.reshape(1, 96, 96, 3)
+# res = simple.predict(frame)
+# print res
+#
+#
+# path = "/Users/sidharthmenon/Desktop/sid-real.jpeg"
+# frame = cv2.imread(path, 1)
+# frame = cv2.resize(frame, None, fx=1.8, fy=1.8)
+# frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_AREA)
+# frame = frame.reshape(1, 96, 96, 3)
+# res = simple.predict(frame)
+# print res
+
+# simple.save_weights("simple_model.h5")
+
+# print(simple.history.keys())
+# summarize history for accuracy
+# plt.plot(simple.history['acc'])
+# plt.plot(simple.history['val_acc'])
+# plt.title('model accuracy')
+# plt.ylabel('accuracy')
+# plt.xlabel('epoch')
+# plt.legend(['train', 'test'], loc='upper left')
+# plt.show()
+# # summarize history for loss
+# plt.plot(simple.history['loss'])
+# plt.plot(simple.history['val_loss'])
+# plt.title('model loss')
+# plt.ylabel('loss')
+# plt.xlabel('epoch')
+# plt.legend(['train', 'test'], loc='upper left')
+# plt.show()
+
 # model summary
 # _________________________________________________________________
 # Layer (type)                 Output Shape              Param #
@@ -484,34 +528,96 @@ def simple_LSTM_model_2(input_shape):
     model = Model(inputs=X_input, outputs=model)
     model_input = Input(input_shape)
     model = TimeDistributed(model)(model_input)
-    model = LSTM(64)(model)
+    model = LSTM(32)(model)
     model = Dense(1, activation='sigmoid')(model)
 
     model = Model(inputs=model_input, outputs=model, name="simple CNN LSTM")
     return model
 
 
-simple_LSTM_2 = simple_LSTM_model_2((50, 96, 96, 3))
+# train simple model and simple LSTM 2 with updated data
+
+
+simple = simple_model((96, 96, 3))
+simple.compile(optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy'])
+X_train, X_test, Y_train, Y_test = loadCNNData()
+print X_train.shape
+print X_test.shape
+print Y_train.shape
+print Y_test.shape
+cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
+simple_history = simple.fit(X_train, Y_train, batch_size=32, epochs=10,
+validation_split=.20, callbacks=cb, verbose=1)
+print(simple_history.history.keys())
+plt.plot(simple_history.history['acc'])
+plt.plot(simple_history.history['val_acc'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(simple_history.history['loss'])
+plt.plot(simple_history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+test_performance = simple.evaluate(X_test, Y_test)
+print test_performance
+
+
+simple_LSTM_2 = simple_LSTM_model_2((15, 96, 96, 3))
 simple_LSTM_2.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
-# model summary
+X_train, X_test, Y_train, Y_test = loadTimeData()
+print X_train.shape
+print X_test.shape
+print Y_train.shape 
+print Y_test.shape
+c = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
+history = simple_LSTM_2.fit(X_train, Y_train, batch_size=32, epochs=10,
+    validation_split=.20, callbacks=c, verbose=1)
+print(history.history.keys())
+# summarize history for accuracy
+plt.plot(history.history['acc'])
+plt.plot(history.history['val_acc'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+test_performance = simple_LSTM_2.evaluate(X_test, Y_test)
+print test_performance
 # _________________________________________________________________
 # Layer (type)                 Output Shape              Param #
 # =================================================================
-# input_28 (InputLayer)        (None, 50, 96, 96, 3)     0
+# input_4 (InputLayer)         (None, 30, 96, 96, 3)     0
 # _________________________________________________________________
-# time_distributed_13 (TimeDis (None, 50, 256)           2443560
+# time_distributed_2 (TimeDist (None, 30, 256)           2443560
 # _________________________________________________________________
-# lstm_11 (LSTM)               (None, 64)                82176
+# lstm_2 (LSTM)                (None, 32)                36992
 # _________________________________________________________________
-# dense_13 (Dense)             (None, 1)                 65
+# dense_4 (Dense)              (None, 1)                 33
 # =================================================================
-# Total params: 2,525,801
-# Trainable params: 2,525,589
+# Total params: 2,480,585
+# Trainable params: 2,480,373
 # Non-trainable params: 212
 # _________________________________________________________________
 # None
+
 
 def simple_GRU_model(input_shape):
     X_input = Input(input_shape[1:])
@@ -617,6 +723,8 @@ check_model(simple_GRU_2, X_input)
 # Inception-LSTM b: 1.337082862854004
 # Inception-LSTM a: 1.3395531177520752
 
-def trainCNN():
-    X_train, X_test, Y_train, Y_test = loadCNNData()
-    simple.fit(X_train, Y_train, validation_split=.25, )
+# def trainCNN():
+#     X_train, X_test, Y_train, Y_test = loadCNNData()
+#     cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
+#     simple.fit(X_train, Y_train, batch_size=32, epochs=10,
+#     validation_split=.20, callbacks=cb, verbose=2)
