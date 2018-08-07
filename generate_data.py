@@ -125,6 +125,8 @@ def shuffle_in_unison(x, y):
     np.random.shuffle(y)
 
 
+
+
 # test method
 # a = np.asarray([1, 2, 3])
 # b = np.asarray([4, 5, 6])
@@ -135,6 +137,11 @@ def shuffle_in_unison(x, y):
 # n = np.zeros((1336, 30, 96, 96, 1))
 # n = n.reshape(-1, 96, 96, 1)
 # print n.shape
+
+
+# X_data = np.load("xdata.npy")
+# X_data = np.divide(X_data, 255.)
+# np.save("xdata.npy", X_data)
 
 # load and shuffle data
 def loadAndShuffle():

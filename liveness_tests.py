@@ -577,11 +577,11 @@ simple_LSTM_2.compile(optimizer='adam',
 X_train, X_test, Y_train, Y_test = loadTimeData()
 print X_train.shape
 print X_test.shape
-print Y_train.shape 
+print Y_train.shape
 print Y_test.shape
 c = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
 history = simple_LSTM_2.fit(X_train, Y_train, batch_size=32, epochs=10,
-    validation_split=.20, callbacks=c, verbose=1)
+    validation_split=.15, callbacks=c, verbose=1)
 print(history.history.keys())
 # summarize history for accuracy
 plt.plot(history.history['acc'])
