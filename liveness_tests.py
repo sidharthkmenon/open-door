@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from numpy.random import seed
 import time as time
 import h5py
-from generate_data import loadCNNData, loadTimeData
+from generate_data import loadCNNData, loadTimeData, loadCNNData2
 
 def conv2d_bn(x,
               layer=None,
@@ -361,7 +361,22 @@ def simple_model(input_shape):
     model = Model(inputs=X_input, outputs=model, name="simple CNN model")
     return model
 
+def simple_model2(input_shape):
+    X_input = Input(input_shape)
+    model = starter_layers(X_input)
+    # model = Conv2D(128, (3,3), name='simp_4conv')(model)
+    # model = BatchNormalization(axis=1, epsilon=0.00001, name='simp_4bn')(model)
+    # model = Activation('relu')(model)
+    # model = AveragePooling2D(pool_size = (3,3), strides=(1,1))(model)
+    model = Flatten()(model)
+    model = Dense(16, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    # model = Dense(9, activation='relu')(model)
+    # model = Dropout(0.25)(model)
+    model = Dense(1, activation='sigmoid')(model)
 
+    model = Model(inputs=X_input, outputs=model, name="simple CNN model")
+    return model
 
 # trainCNN()
 # _, X_test, _, Y_test = loadCNNData()
@@ -538,18 +553,18 @@ def simple_LSTM_model_2(input_shape):
 # train simple model and simple LSTM 2 with updated data
 
 
-simple = simple_model((96, 96, 3))
+simple = simple_model2((96, 96, 3))
 simple.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])
-X_train, X_test, Y_train, Y_test = loadCNNData()
+X_train, X_test, Y_train, Y_test = loadCNNData2()
 print X_train.shape
 print X_test.shape
 print Y_train.shape
 print Y_test.shape
 cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
 simple_history = simple.fit(X_train, Y_train, batch_size=32, epochs=10,
-validation_split=.20, callbacks=cb, verbose=1)
+validation_split=.15, callbacks=cb, verbose=1)
 print(simple_history.history.keys())
 plt.plot(simple_history.history['acc'])
 plt.plot(simple_history.history['val_acc'])

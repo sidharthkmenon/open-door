@@ -13,9 +13,15 @@ import numpy as np
 import cv2
 import dlib
 import time
-
+import argparse
 
 # In[5]:
+
+ap = argparse.ArgumentParser()
+ap.add_argument('-i', '--image', help='/Users/sidharthmenon/Desktop/sid-2.jpeg')
+ap.add_argument('-w', '--weights', default='./mmod_human_face_detector.dat',
+                help='/Users/sidharthmenon/Desktop/Summer\ 2018/open-door')
+args = ap.parse_args()
 
 
 with CustomObjectScope({'tf': tf}):
@@ -26,7 +32,7 @@ with CustomObjectScope({'tf': tf}):
 
 
 face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-
+cnn_face_detector = dlib.cnn_face_detection_model_v1(args.weights)
 
 # In[97]:
 
@@ -63,32 +69,68 @@ def triplet_loss(y_true, y_pred, alpha = 0.2):
 
     return loss
 
+# expands w&h by scale (from results in paper), and keeps same centroid
+def fitToImg((x, y, w, h), (imgw, imgh, c), scale=1.0):
+    nw, nh = map(lambda n: n*scale, (w,h))
+    adjust = lambda nd, d: (nd/2) - (d/2)
+    relu = lambda i: 0 if i < 0 else i
+    nx, ny = relu(x - adjust(nw, w)), relu(y - adjust(nh, h))
+    nw, nh = min((imgw-nx), nw), min((imgh-ny), nh)
+    return nx, ny, nw, nh
 
 # In[98]:
 
 
+# rect = (400, 200, 100, 200)
+# checkCentroid(rect, fitToImg(rect, (640, 480, 3), scale=1.8))
+
+def checkCentroid(pt1, pt2):
+    calc = lambda (g, h, j, k): (g + j/2, h + k/2)
+    return (calc(pt1) == calc(pt2))
+
+def toCVFormat2(face_list):
+    newList = []
+    for faces in face_list:
+        x = faces.rect.left()
+        y = faces.rect.top()
+        newList.append((x, y, faces.rect.right() - x, faces.rect.bottom() - y))
+    return newList
+
 adam= optimizers.Adam()
 model.compile(optimizer='adam', loss=triplet_loss, metrics = ['accuracy'])
 
+# thank god for stackoverflow.
+def histEqualize(img):
+    img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
+    return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
-def alignFace(img1):
+
+def cropFace(img):
+    img = histEqualize(img)
+    face_list = cnn_face_detector(img, 1)
+    face_boxes = toCVFormat2(face_list)
+    face_areas = [w*h for x, y, w, h in face_boxes]
+    if len(face_areas) != 0:
+        x, y, w, h = fitToImg(face_boxes[face_areas.index(max(face_areas))],
+            img.shape, scale=1.34)
+        crop = img[int(y):int(y + h), int(x):int(x + w), :]
+        return crop
+    else:
+        return None
+
+def testHelp(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
     face_boxes = face_cascade.detectMultiScale(gray, 1.3, 5)
     face_areas = [w*h for x, y, w, h in face_boxes]
     if len(face_areas) != 0:
-        x, y, w, h = face_boxes[face_areas.index(max(face_areas))]
-        bb = dlib.rectangle(int(x), int(y), int(x + w), int(y + h))
-        img = img_to_encoding.align.align(96, img1, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-        # print "post encoding alignment is: {0}".format(img1.shape)
-        img = img[...,::-1]
-        return img
-    else:
-        return None
-facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
-alignFace.align = openface.AlignDlib(facePredictor)
-
-
+        x0, y0, w0, h0 = detect_largest_face(img)
+        x, y, w, h = fitToImg(face_boxes[face_areas.index(max(face_areas))],
+        img.shape, scale=1.34)
+        return (int(x0), int(y0)), (int(x+w0), int(y+h0)), (int(x), int(y)), (int(x + w), int(y + h))
 # In[118]:
+
 
 
 def img_to_encoding(img_path, model):
@@ -98,13 +140,13 @@ def img_to_encoding(img_path, model):
     print "Face detection took %s secs" % (time.time() - start)
 
     start = time.time()
-#     cv2.imshow('largest face', img1[y:y+h, x:x+w])
-#     cv2.waitKey()
-#     if img_to_encoding.align is None:
-#         facePredictor = '/Users/ketanagrawal/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
-#         img_to_encoding.align = openface.AlignDlib(facePredictor)
-#     print "Face alignment part 1 took %s secs" % (time.time() - start)
-#     s = time.time()
+    cv2.imshow('largest face', img1[y:y+h, x:x+w])
+    cv2.waitKey()
+    if img_to_encoding.align is None:
+        facePredictor = '/Users/ketanagrawal/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
+        img_to_encoding.align = openface.AlignDlib(facePredictor)
+    print "Face alignment part 1 took %s secs" % (time.time() - start)
+    s = time.time()
     bb = dlib.rectangle(int(x), int(y), int(x + w), int(y + h))
     img1 = img_to_encoding.align.align(96, img1, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
 #     print "Face alignment part 2 took %s secs" % (time.time() - s)
@@ -144,8 +186,9 @@ def detect_largest_face(img):
 
 
 database = {}
+#TODO: uncomment
 # database['ketan'] = img_to_encoding('/Users/ketanagrawal/Desktop/image-test/ketan-1.jpg', model)
-database['sid'] = img_to_encoding('/Users/sidharthmenon/Desktop/Sid.jpeg', model)
+# database['sid'] = img_to_encoding('/Users/sidharthmenon/Desktop/Sid.jpeg', model)
 # database['parker'] = img_to_encoding('/Users/ketanagrawal/Desktop/image-test/parkerface.jpeg', model)
 # database['aditya'] = img_to_encoding('/Users/ketanagrawal/Desktop/image-test/aditya-1.jpg', model)
 

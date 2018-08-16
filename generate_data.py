@@ -7,6 +7,7 @@ from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 import resource
+from openfacetests import cropFace
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -64,10 +65,10 @@ def toVertical(img, dir):
 #     cv2.destroyAllWindows()
 #     x = x + 1
 
-# _, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
-# resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
-# _, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
-# resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
+_, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
+resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
+_, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
+resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
 def prepData():
     X_data = []
     Y_data = []
@@ -102,6 +103,60 @@ def prepData():
     print Y_data.shape
     return X_data, Y_data
 
+def prepSeqData():
+        X_data = []
+        Y_data = []
+        NoFaceData = []
+        NoFaceData_Labels = []
+        yEval = lambda s: 1 if (s[0] == "G") else 0
+        for index in map(str, [2, 3, 4, 5, 6, 11, 12, 13, 16, 17,
+            21, 22, 7, 9, 10, 14, 15, 18, 20, 23]):
+            for dir in ["Up", "Down", "Left", "Right"]:
+                folderPath = projectPath + index + "/" + dir
+                for fileName in os.listdir(folderPath):
+                    filePath = folderPath + "/" + fileName
+                    vid = cv2.VideoCapture(filePath)
+                    frameNum = 0
+                    while(frameNum < 5):
+                        frameNum = frameNum + 1
+                        retVal, frame = vid.read()
+                        if not retVal:
+                            print (index, dir, fileName, frameNum)
+                        frame = toVertical(frame, dir)
+                        frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_CUBIC)
+                        face = cropFace(frame)
+                        yLabel = np.asarray([yEval(fileName)])
+                        if not (face is None):
+                            face = cv2.resize(face, (96, 96))
+                            X_data.append(face)
+                            Y_data.append(yLabel)
+                        else:
+                            NoFaceData.append(frame)
+                            NoFaceData_Labels.append(yLabel)
+                    vid.release()
+                    cv2.destroyAllWindows()
+                    print "+"
+                print "++"
+            print "+++"
+        # X_data = np.asarray(X_data)
+        # Y_data = np.asarray(Y_data)
+        # NoFaceData = np.asarray()
+        return map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
+
+
+def storeSeqData():
+    data = prepSeqData()
+    np.save("data.npy", data)
+    print "saved"
+
+
+# storeSeqData()
+# X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
+# print X_data.shape
+# print Y_data.shape
+# print NoFaceData.shape
+# print NoFaceData_Labels.shape
+
 # X_data, Y_data = prepData()
 # # X_old = np.old("xdata.npy")
 # # Y_old = np.load("ydata.npy")
@@ -124,8 +179,16 @@ def shuffle_in_unison(x, y):
     np.random.set_state(state)
     np.random.shuffle(y)
 
-
-
+storeSeqData()
+X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
+print "X Data shape: {0}".format(X_data.shape)
+print "NoFaceData shape {0}".format(NoFaceData.shape)
+cv2.imshow("cropped", X_data[375, :, :, :])
+cv2.waitKey(300)
+cv2.destroyAllWindows()
+cv2.imshow("uncropped", NoFaceData[375, :, :, :])
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 # test method
 # a = np.asarray([1, 2, 3])
@@ -166,6 +229,11 @@ def loadCNNData():
     shuffle_in_unison(X_data, Y_data)
     X_data = X_data.reshape(-1, 96, 96, 3)
     Y_data = np.repeat(Y_data, 15)
+    return finishData(X_data, Y_data)
+
+def loadCNNData2():
+    X_data, Y_data, _, _ = np.load("data.npy")
+    shuffle_in_unison(X_data, Y_data)
     return finishData(X_data, Y_data)
 
 # load data for time series
