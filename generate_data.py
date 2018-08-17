@@ -124,8 +124,6 @@ def checkBlackFrames():
                     filePath = folderPath + "/" + fileName
                     vid = cv2.VideoCapture(filePath)
                     frameNum = 0
-                    hitFirstNonBlack = False
-                    hitLastNonBlack = False
                     blackList = []
                     while(frameNum < 40):
                         retVal, frame = vid.read()
@@ -155,6 +153,29 @@ def checkBlackFrames():
             print "+++"
         return first
 
+# TODO: here is the part for you Ketan.... tr
+blackList = []
+# TODO: change 5/Down/ to 5/
+path = projectPath + "/5/Down/"
+fileNames = ["Vl_NT_ZTE_g_E_5_158.mp4", "Vl_NT_ZTE_g_E_5_157.mp4"]
+for file in fileNames:
+    filePath = folderPath + "/" + file
+    vid = cv2.VideoCapture(filePath)
+    frameNum = 0
+    blackList = []
+    while(frameNum < 40):
+        retVal, frame = vid.read()
+        if not retVal:
+            print (file, frameNum)
+        else:
+            r, _, _ = cv2.split(frame)
+            r = cv2.resize(r, (96, 96), interpolation=cv2.INTER_AREA)
+            if isBlack(r):
+                blackList.append(frameNum)
+        frameNum += 1
+    vid.release()
+    cv2.destroyAllWindows()
+print blackList
 
 first = checkBlackFrames()
 print first
