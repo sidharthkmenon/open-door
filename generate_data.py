@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 import resource
 from openfacetests import cropFace
+import random
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -103,6 +104,66 @@ def prepData():
     print Y_data.shape
     return X_data, Y_data
 
+def skip(vid, num):
+    if num > 0:
+        vid.read()
+        return skip(vid, num - 1)
+
+
+def checkBlackFrames():
+        first = []
+        total_pixels = 96*96
+        denom = 96*96.
+        percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
+        isBlack = lambda img: True if percentBlack(img) > .90 else False
+        for index in map(str, [2, 3, 4, 5, 6, 11, 12, 13, 16, 17,
+            21, 22, 7, 9, 10, 14, 15, 18, 20, 23]):
+            for dir in ["Up", "Down", "Left", "Right"]:
+                folderPath = projectPath + index + "/" + dir
+                for fileName in random.sample(os.listdir(folderPath), 3):
+                    filePath = folderPath + "/" + fileName
+                    vid = cv2.VideoCapture(filePath)
+                    frameNum = 0
+                    hitFirstNonBlack = False
+                    hitLastNonBlack = False
+                    blackList = []
+                    while(frameNum < 40):
+                        retVal, frame = vid.read()
+                        if not retVal:
+                            print (index, dir, fileName, frameNum)
+                        else:
+                            r, _, _ = cv2.split(frame)
+                            r = cv2.resize(r, (96, 96), interpolation=cv2.INTER_AREA)
+                            if isBlack(r):
+                                blackList.append(frameNum)
+                            # if not(hitFirstNonBlack):
+                            #     if not(isBlack(r)):
+                            #         first.append(frameNum)
+                            #         hitFirstNonBlack = True
+                            # elif not(hitLastNonBlack):
+                            #     if isBlack(r):
+                            #         last.append(frameNum - 1)
+                            #         hitLastNonBlack = True
+                            #     elif frameNum == 39:
+                            #         last.append(frameNum)
+                        frameNum += 1
+                    vid.release()
+                    cv2.destroyAllWindows()
+                    first.append((index, dir, fileName, blackList))
+                    print "+"
+                print "++"
+            print "+++"
+        return first
+
+
+first = checkBlackFrames()
+print first
+firstNP, lastNP = map(np.asarray, (first, last))
+test = (len(first) == len(last))
+diff = np.subtract(lastNP, firstNP)
+avg = lambda a: sum(a)/len(a)
+print beg, end
+
 def prepSeqData():
         X_data = []
         Y_data = []
@@ -179,16 +240,16 @@ def shuffle_in_unison(x, y):
     np.random.set_state(state)
     np.random.shuffle(y)
 
-storeSeqData()
-X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
-print "X Data shape: {0}".format(X_data.shape)
-print "NoFaceData shape {0}".format(NoFaceData.shape)
-cv2.imshow("cropped", X_data[375, :, :, :])
-cv2.waitKey(300)
-cv2.destroyAllWindows()
-cv2.imshow("uncropped", NoFaceData[375, :, :, :])
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# storeSeqData()
+# X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
+# print "X Data shape: {0}".format(X_data.shape)
+# print "NoFaceData shape {0}".format(NoFaceData.shape)
+# cv2.imshow("cropped", X_data[375, :, :, :])
+# cv2.waitKey(300)
+# cv2.destroyAllWindows()
+# cv2.imshow("uncropped", NoFaceData[375, :, :, :])
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
 # test method
 # a = np.asarray([1, 2, 3])

@@ -13,15 +13,9 @@ import numpy as np
 import cv2
 import dlib
 import time
-import argparse
 
 # In[5]:
 
-ap = argparse.ArgumentParser()
-ap.add_argument('-i', '--image', help='/Users/sidharthmenon/Desktop/sid-2.jpeg')
-ap.add_argument('-w', '--weights', default='./mmod_human_face_detector.dat',
-                help='/Users/sidharthmenon/Desktop/Summer\ 2018/open-door')
-args = ap.parse_args()
 
 
 with CustomObjectScope({'tf': tf}):
@@ -32,7 +26,7 @@ with CustomObjectScope({'tf': tf}):
 
 
 face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-cnn_face_detector = dlib.cnn_face_detection_model_v1(args.weights)
+cnn_face_detector = dlib.cnn_face_detection_model_v1('./mmod_human_face_detector.dat')
 
 # In[97]:
 
