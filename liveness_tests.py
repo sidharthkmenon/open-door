@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from numpy.random import seed
 import time as time
 import h5py
-from generate_data import loadCNNData, loadTimeData, loadCNNData2
+from generate_data import loadCNNData2
 
 def conv2d_bn(x,
               layer=None,
@@ -553,7 +553,7 @@ def simple_LSTM_model_2(input_shape):
 # train simple model and simple LSTM 2 with updated data
 
 
-simple = simple_model2((96, 96, 3))
+simple = simple_model((96, 96, 3))
 simple.compile(optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy'])

@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import argparse
 import random
+import time
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-i', '--image', help='/Users/sidharthmenon/Desktop/sid-2.jpeg')
@@ -53,7 +54,7 @@ def histEqualize(img):
     return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
 # init images
-X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
+X_data, Y_data, NoFaceData, NoFaceData_Labels, record = np.load("data.npy")
 imgs = random.sample(X_data, 20)
 nfImgs = random.sample(NoFaceData, 20)
 testarray = []
@@ -79,6 +80,12 @@ def toFormat(x):
     return x
 
 
+total_pixels = 96*96
+denom = 96*96.
+percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
+isBlack = lambda img: True if percentBlack(img) > .90 else False
+split = lambda img: cv2.split(img)[0]
+
 # return CNN/HOG/Haar/Other split for normalized and not normalized images
 def splitImgResults(inputImgs):
     isNorm = False
@@ -87,6 +94,7 @@ def splitImgResults(inputImgs):
     imType = lambda b: "normalized img" if b else "img"
     for img in inputImgs:
         cv2.imshow(imType(isNorm), img)
+        print (isBlack(split(img)))
         key = cv2.waitKey(0)
         if not(isNorm):
             if key == 114: # red
@@ -109,7 +117,6 @@ def splitImgResults(inputImgs):
         cv2.destroyAllWindows()
         isNorm = not(isNorm)
     return toFormat(out), toFormat(normOut)
-
 
 
 # draw rectangles, if ID'd. green: HOG, red: CNN, blue: Haar
@@ -150,5 +157,62 @@ def test():
     print "image results: {0}".format(out)
     print "normalized image results: {0}".format(normOut)
 
+# converts takes image, corrects for direction
+def toVertical(img, dir):
+    if dir == "Down":
+        return cv2.flip(img, -1)
+    elif dir == "Up":
+        return img
+    else:
+        img = cv2.transpose(img)
+        if dir == "Right":
+            return cv2.flip(img, 0)
+        else:
+            return cv2.flip(img, 1)
 
-test()
+
+
+def test2():
+    path = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
+    path = path + "/12/Left/Ps_NT_HW_g_E_12_129.mp4"
+    for i in range(15):
+        cap = cv2.VideoCapture(path)
+        retVal, frame = cap.read()
+        cap.release()
+        frame = toVertical(frame, "Left")
+        frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_AREA)
+        cv2.imshow("black?", frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        print "frame #1: {0}".format(isBlack(split(frame)))
+
+def findBox(img, resize=None):
+    if not(resize is None):
+        img = cv2.resize(img, resize, interpolation=cv2.INTER_AREA)
+    else:
+        resize = img.shape
+    start = time.time()
+    face_list = cnn_face_detector(img, 1)
+    face_boxes = toCVFormat2(face_list)
+    face_areas = [w*h for x, y, w, h in face_boxes]
+    x, y, w, h = face_boxes[face_areas.index(max(face_areas))]
+    x, y, w, h = fitToImg((x, y, w, h), img.shape, scale=1.34)
+    x, y, w, h = int(x), int(y), int(w), int(h)
+    end = time.time() - start
+    print "Size of bounding box: ({0}, {1})".format(w, h)
+    return "Face detection w/CNN on img of shape {0} took {1} seconds".format(resize, end)
+
+def test3():
+        path = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
+        path = path + "/12/Left/Ps_NT_HW_g_E_12_129.mp4"
+        cap = cv2.VideoCapture(path)
+        retVal, frame = cap.read()
+        cap.release()
+        cv2.destroyAllWindows()
+        frame = toVertical(frame, "Left")
+        print findBox(frame, resize=None)
+        print findBox(frame, resize=(240, 240))
+        print findBox(frame, resize=(150, 150))
+        print findBox(frame, resize=(96,96))
+
+test3()

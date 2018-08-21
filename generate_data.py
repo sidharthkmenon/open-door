@@ -7,7 +7,7 @@ from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 import resource
-from openfacetests import cropFace
+from openfacetests import cropFace, cnnDetect
 import random
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
@@ -66,10 +66,10 @@ def toVertical(img, dir):
 #     cv2.destroyAllWindows()
 #     x = x + 1
 
-_, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
-resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
-_, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
-resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
+# _, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
+# resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
+# _, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
+# resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
 def prepData():
     X_data = []
     Y_data = []
@@ -147,49 +147,26 @@ def checkBlackFrames():
                         frameNum += 1
                     vid.release()
                     cv2.destroyAllWindows()
-                    first.append((index, dir, fileName, blackList))
+                    if len(blackList) > 0:
+                        first.append((index, dir, fileName, blackList))
                     print "+"
                 print "++"
             print "+++"
         return first
 
-# TODO: here is the part for you Ketan.... tr
-blackList = []
-# TODO: change 5/Down/ to 5/
-path = projectPath + "/5/Down/"
-fileNames = ["Vl_NT_ZTE_g_E_5_158.mp4", "Vl_NT_ZTE_g_E_5_157.mp4"]
-for file in fileNames:
-    filePath = folderPath + "/" + file
-    vid = cv2.VideoCapture(filePath)
-    frameNum = 0
-    blackList = []
-    while(frameNum < 40):
-        retVal, frame = vid.read()
-        if not retVal:
-            print (file, frameNum)
-        else:
-            r, _, _ = cv2.split(frame)
-            r = cv2.resize(r, (96, 96), interpolation=cv2.INTER_AREA)
-            if isBlack(r):
-                blackList.append(frameNum)
-        frameNum += 1
-    vid.release()
-    cv2.destroyAllWindows()
-print blackList
 
-first = checkBlackFrames()
-print first
-firstNP, lastNP = map(np.asarray, (first, last))
-test = (len(first) == len(last))
-diff = np.subtract(lastNP, firstNP)
-avg = lambda a: sum(a)/len(a)
-print beg, end
-
-def prepSeqData():
+# prep data
+def prepSeqData(skipFrame=5):
         X_data = []
         Y_data = []
         NoFaceData = []
         NoFaceData_Labels = []
+        record = []
+        total_pixels = 96*96
+        denom = 96*96.
+        percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
+        split = lambda img: cv2.split(img)[0]
+        isBlack = lambda img: True if percentBlack(split(img)) > .90 else False
         yEval = lambda s: 1 if (s[0] == "G") else 0
         for index in map(str, [2, 3, 4, 5, 6, 11, 12, 13, 16, 17,
             21, 22, 7, 9, 10, 14, 15, 18, 20, 23]):
@@ -197,34 +174,40 @@ def prepSeqData():
                 folderPath = projectPath + index + "/" + dir
                 for fileName in os.listdir(folderPath):
                     filePath = folderPath + "/" + fileName
-                    vid = cv2.VideoCapture(filePath)
+                    cap = cv2.VideoCapture(filePath)
                     frameNum = 0
-                    while(frameNum < 5):
+                    tempRec = []
+                    while(frameNum < 10):
                         frameNum = frameNum + 1
-                        retVal, frame = vid.read()
+                        retVal, frame = cap.read()
                         if not retVal:
                             print (index, dir, fileName, frameNum)
-                        frame = toVertical(frame, dir)
-                        frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_CUBIC)
-                        face = cropFace(frame)
-                        yLabel = np.asarray([yEval(fileName)])
-                        if not (face is None):
-                            face = cv2.resize(face, (96, 96))
-                            X_data.append(face)
-                            Y_data.append(yLabel)
                         else:
-                            NoFaceData.append(frame)
-                            NoFaceData_Labels.append(yLabel)
-                    vid.release()
+                            if isBlack(frame):
+                                print "Before Vert {0}".format((index, dir, fileName, frameNum))
+                            frame = toVertical(frame, dir)
+                            if isBlack(frame):
+                                print "After Vert {0}".format((index, dir, fileName, frameNum))
+                            frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_AREA)
+                            if isBlack(frame):
+                                print "Resize {0}".format((index, dir, fileName, frameNum))
+                            face = cropFace(frame)
+                            yLabel = np.asarray([yEval(fileName)])
+                            if not (face is None):
+                                if isBlack(face):
+                                    print "Face {0}".format((index, dir, fileName, frameNum))
+                                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                                X_data.append(face)
+                                Y_data.append(yLabel)
+                            else:
+                                NoFaceData.append(frame)
+                                NoFaceData_Labels.append(yLabel)
+                    if len(tempRec) > 0:
+                        record.append((index, dir, fileName, tempRec))
+                    cap.release()
                     cv2.destroyAllWindows()
-                    print "+"
-                print "++"
-            print "+++"
-        # X_data = np.asarray(X_data)
-        # Y_data = np.asarray(Y_data)
-        # NoFaceData = np.asarray()
-        return map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
-
+        a, b, c, d = map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
+        return a, b, c, d, record
 
 def storeSeqData():
     data = prepSeqData()
@@ -232,28 +215,91 @@ def storeSeqData():
     print "saved"
 
 
-# storeSeqData()
-# X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
-# print X_data.shape
-# print Y_data.shape
-# print NoFaceData.shape
-# print NoFaceData_Labels.shape
+def readRecord(rec, init=5):
+    max = init
+    total_pixels = 96*96
+    denom = 96*96.
+    percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
+    isBlack = lambda img: True if percentBlack(img) > .90 else False
+    split = lambda img: cv2.split(img)[0]
+    for (ind, dir, fileName, frameNums) in rec:
+        path = projectPath + ind + "/" + dir + "/" + fileName
+        cap = cv2.VideoCapture(path)
+        frameNum = 1
+        notHit = True
+        skip(cap, init)
+        while notHit:
+            retVal, frame = cap.read()
+            if not retVal:
+                print (ind, dir, fileName, frameNum + 5)
+                notHit = False
+            else:
+                if not(isBlack(split(frame))):
+                    notHit = False
+                    if (5 + frameNum) > max:
+                        max = 5 + frameNum
+            frameNum += 1
+        print "+"
+    return max
 
-# X_data, Y_data = prepData()
-# # X_old = np.old("xdata.npy")
-# # Y_old = np.load("ydata.npy")
-# # X_data = np.concatenate((X_old, X_data))
-# # Y_data = np.concatenate((Y_old, Y_data))
-# np.save("xdata.npy", X_data)
-# np.save("ydata.npy", Y_data)
-# print "saved"
+# TODO: align, normalize (stuff in process_image below)...probably should only do that if
+# a face is detected? or should you align the image regardless? idk. You make the call 
+# prep data template for transfer learning models
+def prepData_Specific(fResize=None, histEqualize=True, faceDetect=True,
+                      scale=1.0, align=False):
+        X_data = []
+        Y_data = []
+        NoFaceData = []
+        NoFaceData_Labels = []
+        record = []
+        total_pixels = 96*96
+        denom = 96*96.
+        percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
+        split = lambda img: cv2.split(img)[0]
+        isBlack = lambda img: True if percentBlack(split(img)) > .90 else False
+        yEval = lambda s: 1 if (s[0] == "G") else 0
+        for index in map(str, [2, 3, 4, 5, 6, 11, 12, 13, 16, 17,
+            21, 22, 7, 9, 10, 14, 15, 18, 20, 23]):
+            for dir in ["Up", "Down", "Left", "Right"]:
+                folderPath = projectPath + index + "/" + dir
+                for fileName in os.listdir(folderPath):
+                    filePath = folderPath + "/" + fileName
+                    cap = cv2.VideoCapture(filePath)
+                    frameNum = 0
+                    tempRec = []
+                    while(frameNum < 10):
+                        frameNum = frameNum + 1
+                        retVal, frame = cap.read()
+                        if not retVal:
+                            print (index, dir, fileName, frameNum)
+                        else:
+                            frame = toVertical(frame, dir)
+                            if not (fResize is None):
+                                frame = cv2.resize(frame, fResize, interpolation=cv2.INTER_AREA)
+                            face = cnnDetect(frame, histEqualize=histEqualize, faceDetect=faceDetect, scale_factor=scale)
+                            yLabel = np.asarray([yEval(fileName)])
+                            if not (face is None):
+                                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                                X_data.append(face)
+                                Y_data.append(yLabel)
+                            else:
+                                NoFaceData.append(frame)
+                                NoFaceData_Labels.append(yLabel)
+                    if len(tempRec) > 0:
+                        record.append((index, dir, fileName, tempRec))
+                    cap.release()
+                    cv2.destroyAllWindows()
+        a, b, c, d = map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
+        return a, b, c, d, record
 
+def process_image(img1):
+    bb = dlib.rectangle(0, 0, 96, 96)
+    img1 = img_to_encoding.align.align(96, img1, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+    img = img1[...,::-1]
+    img = np.around(img/255.0, decimals=12)
+    img = np.array([img])
+    return img
 
-# TODO: CHANGED THE VIDEO LENGTH TO 15 FRAMES
-# test = np.zeros((12, 30, 96, 96, 3))
-# test2 = np.zeros((18, 30, 96, 96, 3))
-# test = np.concatenate((test2, test))
-# print test.shape
 
 def shuffle_in_unison(x, y):
     state = np.random.get_state()
@@ -261,32 +307,6 @@ def shuffle_in_unison(x, y):
     np.random.set_state(state)
     np.random.shuffle(y)
 
-# storeSeqData()
-# X_data, Y_data, NoFaceData, NoFaceData_Labels = np.load("data.npy")
-# print "X Data shape: {0}".format(X_data.shape)
-# print "NoFaceData shape {0}".format(NoFaceData.shape)
-# cv2.imshow("cropped", X_data[375, :, :, :])
-# cv2.waitKey(300)
-# cv2.destroyAllWindows()
-# cv2.imshow("uncropped", NoFaceData[375, :, :, :])
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-# test method
-# a = np.asarray([1, 2, 3])
-# b = np.asarray([4, 5, 6])
-# shuffle_in_unison(a, b)
-# print a
-# print b
-
-# n = np.zeros((1336, 30, 96, 96, 1))
-# n = n.reshape(-1, 96, 96, 1)
-# print n.shape
-
-
-# X_data = np.load("xdata.npy")
-# X_data = np.divide(X_data, 255.)
-# np.save("xdata.npy", X_data)
 
 # load and shuffle data
 def loadAndShuffle():
@@ -294,10 +314,6 @@ def loadAndShuffle():
     Y_data = np.load("ydata.npy")
     shuffle_in_unison(X_data, Y_data)
     return X_data, Y_data
-
-# X_data = np.load("xdata.npy")
-# Y_data = np.load("ydata.npy")
-# print X_data[1, 1, :, :, 1]
 
 # given input data, generate training and test sets (CV will be done in .fit)
 def finishData(X_data, Y_data):
@@ -314,7 +330,7 @@ def loadCNNData():
     return finishData(X_data, Y_data)
 
 def loadCNNData2():
-    X_data, Y_data, _, _ = np.load("data.npy")
+    X_data, Y_data, _, _, _ = np.load("data.npy")
     shuffle_in_unison(X_data, Y_data)
     return finishData(X_data, Y_data)
 

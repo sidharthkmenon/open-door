@@ -100,6 +100,23 @@ def histEqualize(img):
     return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
 
+def cnnDetect(img, faceDetect=True, equalize_hist=True, scale_factor=1.0):
+    if equalizeHist:
+        img = histEqualize(img)
+    if faceDetect:
+        face_list = cnn_face_detector(img, 1)
+        face_boxes = toCVFormat2(face_list)
+        face_areas = [w*h for x, y, w, h in face_boxes]
+        if len(face_areas) != 0:
+            x, y, w, h = fitToImg(face_boxes[face_areas.index(max(face_areas))],
+                img.shape, scale=scale_factor)
+            crop = img[int(y):int(y + h), int(x):int(x + w), :]
+            return crop
+        else:
+            return None
+    else:
+        return img
+
 def cropFace(img):
     img = histEqualize(img)
     face_list = cnn_face_detector(img, 1)
