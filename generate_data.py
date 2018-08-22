@@ -246,8 +246,8 @@ def readRecord(rec, init=5):
 # TODO: align, normalize (stuff in process_image below)...probably should only do that if
 # a face is detected? or should you align the image regardless? idk. You make the call
 # prep data template for transfer learning models
-def prepData_Specific(first_resize=None, histEqualize=True, faceDetect=True,
-                      scale=1.0, align=False, nickName):
+def prepData_Specific(nickName, first_resize=None, histEqualize=True, faceDetect=True,
+                      scale=1.0, align=False):
         X_data = []
         Y_data = []
         NoFaceData = []
