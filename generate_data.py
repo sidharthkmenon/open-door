@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import resource
 from openfacetests import cropFace, cnnDetect
 import random
+from subprocess import call
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -243,15 +244,14 @@ def readRecord(rec, init=5):
     return max
 
 # TODO: align, normalize (stuff in process_image below)...probably should only do that if
-# a face is detected? or should you align the image regardless? idk. You make the call 
+# a face is detected? or should you align the image regardless? idk. You make the call
 # prep data template for transfer learning models
-def prepData_Specific(fResize=None, histEqualize=True, faceDetect=True,
-                      scale=1.0, align=False):
+def prepData_Specific(first_resize=None, histEqualize=True, faceDetect=True,
+                      scale=1.0, align=False, nickName):
         X_data = []
         Y_data = []
         NoFaceData = []
         NoFaceData_Labels = []
-        record = []
         total_pixels = 96*96
         denom = 96*96.
         percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
@@ -274,23 +274,40 @@ def prepData_Specific(fResize=None, histEqualize=True, faceDetect=True,
                             print (index, dir, fileName, frameNum)
                         else:
                             frame = toVertical(frame, dir)
-                            if not (fResize is None):
-                                frame = cv2.resize(frame, fResize, interpolation=cv2.INTER_AREA)
+                            if not (first_resize is None):
+                                frame = cv2.resize(frame, first_resize, interpolation=cv2.INTER_CUBIC)
                             face = cnnDetect(frame, histEqualize=histEqualize, faceDetect=faceDetect, scale_factor=scale)
                             yLabel = np.asarray([yEval(fileName)])
                             if not (face is None):
                                 face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                                if align:
+                                    bb = dlib.rectangle(0, 0, 96, 96)
+                                    face = prepData_Specific.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                                    face = face[...,::-1]
+                                    face = np.around(face/255.0, decimals=12)
+                                    face = np.array(face)
                                 X_data.append(face)
                                 Y_data.append(yLabel)
                             else:
+                                frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_CUBIC)
+                                if align:
+                                    bb = dlib.rectangle(0, 0, 96, 96)
+                                    frame = prepData_Specific.align.align(96, frame, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                                    frame = frame[...,::-1]
+                                    frame = np.around(frame/255.0, decimals=12)
+                                    frame = np.array(frame)
                                 NoFaceData.append(frame)
                                 NoFaceData_Labels.append(yLabel)
-                    if len(tempRec) > 0:
-                        record.append((index, dir, fileName, tempRec))
                     cap.release()
                     cv2.destroyAllWindows()
-        a, b, c, d = map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
-        return a, b, c, d, record
+        data = map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
+        fileName = "{0}.npy".format(nickName)
+        call(["touch", fileName])
+        np.save(fileName, data)
+        return np.load(fileName)
+
+facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
+prepData_Specific.align = openface.AlignDlib(facePredictor)
 
 def process_image(img1):
     bb = dlib.rectangle(0, 0, 96, 96)
