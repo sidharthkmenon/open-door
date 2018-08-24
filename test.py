@@ -54,19 +54,19 @@ def histEqualize(img):
     return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
 # init images
-X_data, Y_data, NoFaceData, NoFaceData_Labels, record = np.load("data.npy")
+npzload = np.load('PigLatin2_v3.npz')
+X_data = npzload['x']
+NoFaceData = npzload['nf']
 imgs = random.sample(X_data, 20)
 nfImgs = random.sample(NoFaceData, 20)
 testarray = []
 for i in range(20):
-    # img = nfImgs[i]
+    img = nfImgs[i]
+    testarray.append(img)
+    # img = imgs[i]
     # norm = histEqualize(img)
     # testarray.append(img)
     # testarray.append(norm)
-    img = imgs[i]
-    norm = histEqualize(img)
-    testarray.append(img)
-    testarray.append(norm)
 
 print "testarray prepped"
 
@@ -215,4 +215,4 @@ def test3():
         print findBox(frame, resize=(150, 150))
         print findBox(frame, resize=(96,96))
 
-test3()
+test()

@@ -101,7 +101,7 @@ def histEqualize(img):
 
 
 def cnnDetect(img, faceDetect=True, equalize_hist=True, scale_factor=1.0):
-    if equalizeHist:
+    if equalize_hist:
         img = histEqualize(img)
     if faceDetect:
         face_list = cnn_face_detector(img, 1)

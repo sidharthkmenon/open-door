@@ -10,6 +10,8 @@ import resource
 from openfacetests import cropFace, cnnDetect
 import random
 from subprocess import call
+import openface
+import dlib
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -67,10 +69,10 @@ def toVertical(img, dir):
 #     cv2.destroyAllWindows()
 #     x = x + 1
 
-# _, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
-# resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
-# _, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
-# resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
+_, hdata_lim = resource.getrlimit(resource.RLIMIT_DATA)
+resource.setrlimit(resource.RLIMIT_DATA, (hdata_lim, hdata_lim))
+_, hfile_lim = resource.getrlimit(resource.RLIMIT_FSIZE)
+resource.setrlimit(resource.RLIMIT_FSIZE, (hfile_lim, hfile_lim))
 def prepData():
     X_data = []
     Y_data = []
@@ -266,48 +268,117 @@ def prepData_Specific(nickName, first_resize=None, histEqualize=True, faceDetect
                     filePath = folderPath + "/" + fileName
                     cap = cv2.VideoCapture(filePath)
                     frameNum = 0
-                    tempRec = []
                     while(frameNum < 10):
                         frameNum = frameNum + 1
                         retVal, frame = cap.read()
                         if not retVal:
-                            print (index, dir, fileName, frameNum)
+                            if frameNum == 1:
+                                print ("retVal bad", index, dir, fileName, frameNum)
+                        elif isBlack(frame):
+                                frameNum = frameNum - 1
                         else:
                             frame = toVertical(frame, dir)
                             if not (first_resize is None):
                                 frame = cv2.resize(frame, first_resize, interpolation=cv2.INTER_CUBIC)
-                            face = cnnDetect(frame, histEqualize=histEqualize, faceDetect=faceDetect, scale_factor=scale)
-                            yLabel = np.asarray([yEval(fileName)])
+                            face = cnnDetect(frame, equalize_hist=histEqualize, faceDetect=faceDetect, scale_factor=scale)
+                            yLabel = yEval(fileName)
                             if not (face is None):
                                 face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
                                 if align:
                                     bb = dlib.rectangle(0, 0, 96, 96)
                                     face = prepData_Specific.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-                                    face = face[...,::-1]
                                     face = np.around(face/255.0, decimals=12)
-                                    face = np.array(face)
                                 X_data.append(face)
                                 Y_data.append(yLabel)
                             else:
                                 frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_CUBIC)
-                                if align:
-                                    bb = dlib.rectangle(0, 0, 96, 96)
-                                    frame = prepData_Specific.align.align(96, frame, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-                                    frame = frame[...,::-1]
-                                    frame = np.around(frame/255.0, decimals=12)
-                                    frame = np.array(frame)
                                 NoFaceData.append(frame)
                                 NoFaceData_Labels.append(yLabel)
                     cap.release()
                     cv2.destroyAllWindows()
-        data = map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
-        fileName = "{0}.npy".format(nickName)
+        fileName = "{0}.npz".format(nickName)
         call(["touch", fileName])
-        np.save(fileName, data)
-        return np.load(fileName)
+        return map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
 
 facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
 prepData_Specific.align = openface.AlignDlib(facePredictor)
+
+def prepData_Specific_pt1(nickName, first_resize=None):
+        X_data = []
+        Y_data = []
+        NoFaceData = []
+        NoFaceData_Labels = []
+        total_pixels = 96*96
+        denom = 96*96.
+        percentBlack = lambda img: round((total_pixels-cv2.countNonZero(img))/denom, 2)
+        split = lambda img: cv2.split(img)[0]
+        isBlack = lambda img: True if percentBlack(split(img)) > .90 else False
+        yEval = lambda s: 1 if (s[0] == "G") else 0
+        for index in map(str, [2, 3, 4, 5, 6, 11, 12, 13, 16, 17,
+            21, 22, 7, 9, 10, 14, 15, 18, 20, 23]):
+            for dir in ["Up", "Down", "Left", "Right"]:
+                folderPath = projectPath + index + "/" + dir
+                for fileName in os.listdir(folderPath):
+                    filePath = folderPath + "/" + fileName
+                    cap = cv2.VideoCapture(filePath)
+                    frameNum = 0
+                    while(frameNum < 10):
+                        frameNum = frameNum + 1
+                        retVal, frame = cap.read()
+                        if not retVal:
+                            if frameNum == 1:
+                                print ("retVal bad", index, dir, fileName, frameNum)
+                        elif isBlack(frame):
+                                frameNum = frameNum - 1
+                        else:
+                            frame = toVertical(frame, dir)
+                            if not (first_resize is None):
+                                frame = cv2.resize(frame, first_resize, interpolation=cv2.INTER_CUBIC)
+                            yLabel = yEval(fileName)
+                            X_data.append(frame)
+                            Y_data.append(yLabel)
+                    cv2.destroyAllWindows()
+                    cap.release()
+        fileName = "{0}.npz".format(nickName)
+        call(["touch", fileName])
+        return map(np.asarray, (X_data, Y_data))
+
+def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, faceDetect=True, scale=1.0, align=False):
+    rawImgs = []
+    rawImg_Labels = []
+    assert ((fileName is None) != ((rx is None) and (ry is None)))
+    if fileName is None:
+        rawImgs = rx
+        rawImg_Labels = ry
+    else:
+        npz_file = np.load(fileName)
+        rawImgs = npz_file['rx']
+        rawImg_Labels = npz_file['ry']
+    X_data = []
+    Y_data = []
+    NoFaceData = []
+    NoFaceData_Labels = []
+    for i in range(rawImgs.shape[0]):
+        frame = rawImgs[i, ::]
+        face = cnnDetect(frame, equalize_hist=histEqualize, faceDetect=faceDetect, scale_factor=scale)
+        yLabel = rawImg_Labels[i]
+        if not (face is None):
+            face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+            if align:
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+            X_data.append(face)
+            Y_data.append(yLabel)
+        else:
+            frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_CUBIC)
+            NoFaceData.append(frame)
+            NoFaceData_Labels.append(yLabel)
+    return map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
+
+facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
+prepData_Specific_pt2.align = openface.AlignDlib(facePredictor)
+
 
 def process_image(img1):
     bb = dlib.rectangle(0, 0, 96, 96)
