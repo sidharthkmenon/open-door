@@ -218,6 +218,45 @@ call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 
 # In[25]:
 
+# Train PigLatin (best model so far) on 20-30 more epochs
+
+nickName = 'PigLatin'
+print 'loading model...'
+with CustomObjectScope({'tf': tf}):
+    PigLatin = load_model('./{0}/{0}_model.h5'.format(nickName))
+print 'loading data...'
+X_data = np.load('./{0}/{0}_Imgs.npy'.format(nickName))
+intermediate_output = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in X_data])
+print 'converting data to encoding...'
+intermediate_output = np.array([get_flatten_layer_output([x]) for x in intermediate_output])
+intermediate_output = np.reshape(intermediate_output, (intermediate_output.shape[0], 736))
+print 'loading labels...'
+Y_data = np.load('./{0}/{0}_Labels.npy'.format(nickName))
+print intermediate_output.shape, Y_data.shape
+X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
+print 'training...'
+cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
+simple_history = PigLatin.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
+print(simple_history.history.keys())
+plt.plot(simple_history.history['acc'])
+plt.plot(simple_history.history['val_acc'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(simple_history.history['loss'])
+plt.plot(simple_history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+test_performance = PigLatin.evaluate(X_test, Y_test)
+print test_performance
+print 'saving...'
+PigLatin.save('./{0}/{0}_model.h5'.format(nickName))
 
 #from https://github.com/obieda01/Deep-Learning-Specialization-Coursera/blob/master/Course%204%20-%20Convolutional%20Neural%20Networks/Week%204/Face%20Recognition/Face%20Recognition%20for%20the%20Happy%20House%20-%20%20v1.ipynb
 def triplet_loss(y_true, y_pred, alpha = 0.2):
