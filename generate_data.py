@@ -391,7 +391,7 @@ def addNoise(img, numTimes):
 def augmentData(X_data, Y_data, n):
     add_imgs = []
     add_labels = []
-    yEval = lambda s: 1 if 'fake' in s else 0
+    yEval = lambda s: 0 if 'fake' in s else 1
     for fileName in os.listdir('./image-test'):
         if not ('Store' in fileName):
             yLabel = yEval(fileName)
@@ -409,6 +409,8 @@ def augmentData(X_data, Y_data, n):
                 add_labels = add_labels + list(itertools.repeat(yLabel, n))
     add_imgs = np.array(add_imgs)
     add_labels = np.array(add_labels)
+    np.save('./add_imgs.npy', add_imgs)
+    np.save('./add_labels.npy', add_labels)
     print add_imgs.shape
     print add_labels.shape
     return np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)

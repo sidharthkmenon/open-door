@@ -116,6 +116,19 @@ def coolModel_v2(input_shape):
     model = Model(inputs=X_input, outputs=model, name='cool model')
     return model
 
+def coolModel_v3(input_shape):
+    X_input = Input(input_shape)
+    model = Dense(256)(X_input)
+    model = Activation('relu')(model)
+    model = Dropout(0.5)(model)
+    model = Dense(64, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    model = Dense(16, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    model = Dense(1, activation='sigmoid')(model)
+    model = Model(inputs=X_input, outputs=model, name='cool model')
+    return model
+
 # In[76]:
 
 
@@ -232,13 +245,12 @@ call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 # Train PigLatin (best model so far) on 20-30 more epochs
 
 nickName = 'PigLatin'
-print 'loading model...'
-coolModel = coolModel((736,))
-coolModel = coolModel.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 print 'loading data...'
 X_data = np.load('./{0}/{0}_Imgs.npy'.format(nickName))
 Y_data = np.load('./{0}/{0}_Labels.npy'.format(nickName))
-X_data, Y_data = augmentData(X_data, Y_data, 85)
+import generate_data
+reload(generate_data)
+X_data, Y_data = generate_data.augmentData(X_data, Y_data, 85)
 print X_data.shape
 print Y_data.shape
 intermediate_output = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in X_data])
@@ -247,9 +259,10 @@ intermediate_output = np.array([get_flatten_layer_output([x]) for x in intermedi
 intermediate_output = np.reshape(intermediate_output, (intermediate_output.shape[0], 736))
 print intermediate_output.shape, Y_data.shape
 X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
-print 'training...'
+coolmodel = coolModel_v2((736,))
+coolmodel.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=2)]
-simple_history = coolModel.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
+simple_history = coolmodel.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
 print(simple_history.history.keys())
 plt.plot(simple_history.history['acc'])
 plt.plot(simple_history.history['val_acc'])
@@ -266,11 +279,11 @@ plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train', 'test'], loc='upper left')
 plt.show()
-test_performance = coolModel.evaluate(X_test, Y_test)
+test_performance = coolmodel.evaluate(X_test, Y_test)
 print test_performance
 print 'saving...'
-PigLatin.save('coolmodelv2_model.h5')
-call(['mv', './coolmodelv2_model.h5', './coolmodel_v2'])
+coolmodel.save('coolmodelv3_model.h5')
+call(['mv', './coolmodelv3_model.h5', './coolmodel_v2'])
 
 #
 
