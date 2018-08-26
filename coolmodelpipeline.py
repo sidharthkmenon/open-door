@@ -116,6 +116,14 @@ def coolModel_v2(input_shape):
     model = Model(inputs=X_input, outputs=model, name='cool model')
     return model
 
+def coolModel_v2_5(input_shape):
+    X_input = Input(input_shape)
+    model = Dense(128, activation='relu')(X_input)
+    model = Dropout(0.5)(model)
+    model = Dense(1, activation='sigmoid')(model)
+    model = Model(inputs=X_input, outputs=model, name='cool model')
+    return model
+
 def coolModel_v3(input_shape):
     X_input = Input(input_shape)
     model = Dense(256)(X_input)
@@ -259,7 +267,9 @@ intermediate_output = np.array([get_flatten_layer_output([x]) for x in intermedi
 intermediate_output = np.reshape(intermediate_output, (intermediate_output.shape[0], 736))
 print intermediate_output.shape, Y_data.shape
 X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
-coolmodel = coolModel_v2((736,))
+np.save('intermediate_encoding.npy', intermediate_output)
+np.save('intermediate_labels.npy', Y_data)
+coolmodel = coolModel_v2_5((736,))
 coolmodel.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=2)]
 simple_history = coolmodel.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
@@ -282,8 +292,8 @@ plt.show()
 test_performance = coolmodel.evaluate(X_test, Y_test)
 print test_performance
 print 'saving...'
-coolmodel.save('coolmodelv3_model.h5')
-call(['mv', './coolmodelv3_model.h5', './coolmodel_v2'])
+coolmodel.save('coolmodelv5_model.h5')
+call(['mv', './coolmodelv5_model.h5', './coolmodelv3'])
 
 #
 
