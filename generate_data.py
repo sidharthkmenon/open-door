@@ -12,6 +12,8 @@ import random
 from subprocess import call
 import openface
 import dlib
+from skimage.util import random_noise
+import itertools
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -378,6 +380,42 @@ def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, fa
 
 facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
 prepData_Specific_pt2.align = openface.AlignDlib(facePredictor)
+
+def addNoise(img, numTimes):
+    tot = []
+    for i in xrange(numTimes):
+        tot.append(random_noise(img, mode='s&p', salt_vs_pepper=0.2))
+    return tot
+
+
+def augmentData(X_data, Y_data, n):
+    add_imgs = []
+    add_labels = []
+    yEval = lambda s: 1 if 'fake' in s else 0
+    for fileName in os.listdir('./image-test'):
+        if not ('Store' in fileName):
+            yLabel = yEval(fileName)
+            img = cv2.imread('./image-test/{0}'.format(fileName), 1)
+            if yLabel == 1 or 'IMG' in fileName:
+                img = toVertical(img, 'Left')
+            img = cv2.resize(img, (240, 240), interpolation=cv2.INTER_CUBIC)
+            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
+            if not (face is None):
+                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+                add_imgs = add_imgs + addNoise(face, n)
+                add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    add_imgs = np.array(add_imgs)
+    add_labels = np.array(add_labels)
+    print add_imgs.shape
+    print add_labels.shape
+    return np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)
+
+
+
+
 
 
 def process_image(img1):

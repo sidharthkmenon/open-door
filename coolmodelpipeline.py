@@ -20,7 +20,7 @@ import time
 from keras import backend as K
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-from generate_data import prepData_Specific, prepData_Specific_pt1, prepData_Specific_pt2
+from generate_data import prepData_Specific, prepData_Specific_pt1, prepData_Specific_pt2, augmentData
 import resource
 from subprocess import call
 # In[55]:
@@ -105,6 +105,16 @@ def coolModel(input_shape):
     model = Model(inputs=X_input, outputs=model, name='cool model')
     return model
 
+def coolModel_v2(input_shape):
+    X_input = Input(input_shape)
+    model = Dense(256)(X_input)
+    model = Activation('relu')(model)
+    model = Dropout(0.5)(model)
+    model = Dense(16, activation='relu')(model)
+    model = Dropout(0.5)(model)
+    model = Dense(1, activation='sigmoid')(model)
+    model = Model(inputs=X_input, outputs=model, name='cool model')
+    return model
 
 # In[76]:
 
@@ -218,25 +228,28 @@ call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 
 # In[25]:
 
+
 # Train PigLatin (best model so far) on 20-30 more epochs
 
 nickName = 'PigLatin'
 print 'loading model...'
-with CustomObjectScope({'tf': tf}):
-    PigLatin = load_model('./{0}/{0}_model.h5'.format(nickName))
+coolModel = coolModel((736,))
+coolModel = coolModel.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 print 'loading data...'
 X_data = np.load('./{0}/{0}_Imgs.npy'.format(nickName))
+Y_data = np.load('./{0}/{0}_Labels.npy'.format(nickName))
+X_data, Y_data = augmentData(X_data, Y_data, 85)
+print X_data.shape
+print Y_data.shape
 intermediate_output = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in X_data])
 print 'converting data to encoding...'
 intermediate_output = np.array([get_flatten_layer_output([x]) for x in intermediate_output])
 intermediate_output = np.reshape(intermediate_output, (intermediate_output.shape[0], 736))
-print 'loading labels...'
-Y_data = np.load('./{0}/{0}_Labels.npy'.format(nickName))
 print intermediate_output.shape, Y_data.shape
 X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
 print 'training...'
-cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
-simple_history = PigLatin.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
+cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=2)]
+simple_history = coolModel.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
 print(simple_history.history.keys())
 plt.plot(simple_history.history['acc'])
 plt.plot(simple_history.history['val_acc'])
@@ -253,10 +266,13 @@ plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train', 'test'], loc='upper left')
 plt.show()
-test_performance = PigLatin.evaluate(X_test, Y_test)
+test_performance = coolModel.evaluate(X_test, Y_test)
 print test_performance
 print 'saving...'
-PigLatin.save('./{0}/{0}_model.h5'.format(nickName))
+PigLatin.save('coolmodelv2_model.h5')
+call(['mv', './coolmodelv2_model.h5', './coolmodel_v2'])
+
+#
 
 #from https://github.com/obieda01/Deep-Learning-Specialization-Coursera/blob/master/Course%204%20-%20Convolutional%20Neural%20Networks/Week%204/Face%20Recognition/Face%20Recognition%20for%20the%20Happy%20House%20-%20%20v1.ipynb
 def triplet_loss(y_true, y_pred, alpha = 0.2):
