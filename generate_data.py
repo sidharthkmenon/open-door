@@ -386,7 +386,11 @@ def addNoise(img, numTimes):
     for i in xrange(numTimes):
         tot.append(random_noise(img, mode='s&p', salt_vs_pepper=0.2))
     return tot
-
+def addNoise2(img, numTimes, pNoise):
+    tot = []
+    for i in xrange(numTimes):
+        tot.append(random_noise(img, mode='s&p', amount=pNoise, salt_vs_pepper=0.2))
+    return tot
 
 def augmentData(X_data, Y_data, n):
     add_imgs = []
@@ -415,8 +419,42 @@ def augmentData(X_data, Y_data, n):
     print add_labels.shape
     return np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)
 
-
-
+def augmentData2(n, pNoise):
+    add_imgs = []
+    add_labels = []
+    for fileName in os.listdir('./real'):
+        if not ('Store' in fileName):
+            yLabel = 1
+            img = cv2.imread('./real/{0}'.format(fileName), 1)
+            img = cv2.resize(img, (240, 240), interpolation=cv2.INTER_CUBIC)
+            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
+            if not (face is None):
+                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+                add_imgs = add_imgs + addNoise2(face, n, pNoise)
+                add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    for fileName in os.listdir('./fake'):
+        if not ('Store' in fileName):
+            yLabel = 0
+            img = cv2.imread('./fake/{0}'.format(fileName), 1)
+            img = cv2.resize(img, (240, 240), interpolation=cv2.INTER_CUBIC)
+            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
+            if not (face is None):
+                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+                add_imgs = add_imgs + addNoise2(face, n, pNoise)
+                add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    add_imgs = np.array(add_imgs)
+    add_labels = np.array(add_labels)
+    np.save('./more_imgs.npy', add_imgs)
+    np.save('./more_labels.npy', add_labels)
+    print add_imgs.shape
+    print add_labels.shape
+    return add_imgs, add_labels
 
 
 
