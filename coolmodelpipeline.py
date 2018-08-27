@@ -20,7 +20,7 @@ import time
 from keras import backend as K
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-from generate_data import prepData_Specific, prepData_Specific_pt1, prepData_Specific_pt2, augmentData
+from generate_data import prepData_Specific, prepData_Specific_pt1, prepData_Specific_pt2, augmentData, augmentData2
 import resource
 from subprocess import call
 # In[55]:
@@ -191,28 +191,27 @@ def finishData(X_data, Y_data):
 
 # In[112]:
 
-NoAlign = coolModel((736,))
+
+
+NoAlign = coolModel_v2((736,))
 NoAlign.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 print "loading data pt1"
-rawData, rawLabels = prepData_Specific_pt1('240_Raw', first_resize=(240, 240))
+rawData, rawLabels = np.load('./150_Data/150_Imgs.npy'), np.load('./150_Data/150_Labels.npy')
 print rawData.shape, rawLabels.shape
-rawData, rawLabels = map(np.array, (rawData, rawLabels))
-np.save('240_Imgs.npy', rawData)
-np.save('240_Labels.npy', rawLabels)
-print "loading data pt2"
-rawData = np.load('./240_Data/240_Imgs.npy')
-rawLabels = np.load('./240_Data/240_Labels.npy')
-nickName = 'NoAlign'
+nickName = '150-Cool-v2'
+call(['mkdir', '{0}'.format(nickName)])
 print 'prepping Data'
 X_data, Y_data, NoFaceData, NoFaceData_Labels = prepData_Specific_pt2(rx=rawData, ry=rawLabels, histEqualize=True, faceDetect=True, scale=1.34, align=False)
 X_data, Y_data, NoFaceData, NoFaceData_Labels = map(np.array, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
 print X_data.shape, Y_data.shape
 print NoFaceData.shape, NoFaceData_Labels.shape
+X_data, Y_data = augmentData(X_data, Y_data, 50, nickName)
+add_imgs, add_labels = augmentData2(50, .15, nickName)
+X_data, Y_data = np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)
 np.save('{0}_Imgs.npy'.format(nickName), X_data)
 np.save('{0}_Labels.npy'.format(nickName), Y_data)
 np.save('{0}_NoFaceImgs.npy'.format(nickName), NoFaceData)
 np.save('{0}_NoFaceLabels.npy'.format(nickName), NoFaceData_Labels)
-call(['mkdir', '{0}'.format(nickName)])
 call(['mv', './{0}_Imgs.npy'.format(nickName), './{0}'.format(nickName)])
 call(['mv', './{0}_Labels.npy'.format(nickName), './{0}'.format(nickName)])
 call(['mv', './{0}_NoFaceImgs.npy'.format(nickName), './{0}'.format(nickName)])
@@ -228,8 +227,8 @@ Y_data.shape
 intermediate_output.shape
 X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
 print "finished data"
-cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=1)]
-simple_history = NoAlign.fit(X_train, Y_train, batch_size=32, epochs=10, validation_split=.15, callbacks=cb, verbose=1)
+cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=2)]
+simple_history = NoAlign.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
 print(simple_history.history.keys())
 plt.plot(simple_history.history['acc'])
 plt.plot(simple_history.history['val_acc'])
@@ -248,13 +247,68 @@ plt.legend(['train', 'test'], loc='upper left')
 plt.show()
 test_performance = NoAlign.evaluate(X_test, Y_test)
 print test_performance
+NoAlign.save('{0}_Model.h5'.format(nickName))
+call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 
+
+NoAlign = coolModel_v2((736,))
+NoAlign.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+nickName = '150-Cool-Randomized-v3'
+call(['mkdir', '{0}'.format(nickName)])
+rawData, rawLabels = np.load('./150_Data/150_Imgs.npy'), np.load('./150_Data/150_Labels.npy')
+print rawData.shape, rawLabels.shape
+print 'prepping Data'
+X_data, Y_data, NoFaceData, NoFaceData_Labels = prepData_Specific_pt2(rx=rawData, ry=rawLabels, histEqualize=True, faceDetect=True, scale=1.34, align=False, randomize=True)
+X_data, Y_data, NoFaceData, NoFaceData_Labels = map(np.array, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
+print X_data.shape, Y_data.shape
+print NoFaceData.shape, NoFaceData_Labels.shape
+X_data, Y_data = augmentData(X_data, Y_data, 50, nickName)
+add_imgs, add_labels = augmentData2(50, .15, nickName)
+X_data, Y_data = np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)
+np.save('{0}_Imgs.npy'.format(nickName), X_data)
+np.save('{0}_Labels.npy'.format(nickName), Y_data)
+np.save('{0}_NoFaceImgs.npy'.format(nickName), NoFaceData)
+np.save('{0}_NoFaceLabels.npy'.format(nickName), NoFaceData_Labels)
+call(['mv', './{0}_Imgs.npy'.format(nickName), './{0}'.format(nickName)])
+call(['mv', './{0}_Labels.npy'.format(nickName), './{0}'.format(nickName)])
+call(['mv', './{0}_NoFaceImgs.npy'.format(nickName), './{0}'.format(nickName)])
+call(['mv', './{0}_NoFaceLabels.npy'.format(nickName), './{0}'.format(nickName)])
+X_data = np.load('./{0}/{0}_Imgs.npy'.format(nickName))
+Y_data = np.load('./{0}/{0}_Labels.npy'.format(nickName))
+print "getting intermediate layer"
+intermediate_output = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in X_data])
+intermediate_output = np.array([get_flatten_layer_output([x]) for x in intermediate_output])
+intermediate_output.shape
+intermediate_output = np.reshape(intermediate_output, (intermediate_output.shape[0], 736))
+Y_data.shape
+intermediate_output.shape
+X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
+print "finished data"
+cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=2)]
+simple_history = NoAlign.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
+print(simple_history.history.keys())
+plt.plot(simple_history.history['acc'])
+plt.plot(simple_history.history['val_acc'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(simple_history.history['loss'])
+plt.plot(simple_history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+test_performance = NoAlign.evaluate(X_test, Y_test)
+print test_performance
+NoAlign.save('{0}_Model.h5'.format(nickName))
+call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 
 # In[113]:
 
-
-NoAlign.save('{0}_Model.h5'.format(nickName))
-call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 
 # In[25]:
 
@@ -268,32 +322,15 @@ Y_data = np.load('./{0}/{0}_Labels.npy'.format(nickName))
 X_data, Y_data = generate_data.augmentData(X_data, Y_data, 85)
 print X_data.shape
 print Y_data.shape
-
-import generate_data
-reload(generate_data)
-extraImgs, extraLabels = generate_data.augmentData2(50, 0.15)
-int_extraImgs = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in extraImgs])
-int_extraImgs = np.array([get_flatten_layer_output([x]) for x in int_extraImgs])
-print int_extraImgs.shape
-int_extraImgs = np.reshape(intermediate_output, (int_extraImgs.shape[0], 736))
-print int_extraImgs.shape
-
-intermediate_output = np.load('./coolmodelv3/intermediate_encoding.npy')
-Y_data = np.load('./coolmodelv3/intermediate_labels.npy')
-
-intermediate_output = np.append(intermediate_output, int_extraImgs, axis=0)
-Y_data = np.append(Y_data, extraLabels, axis=0)
-print intermediate_output.shape, Y_data.shape
-
 intermediate_output = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in X_data])
 print 'converting data to encoding...'
 intermediate_output = np.array([get_flatten_layer_output([x]) for x in intermediate_output])
 intermediate_output = np.reshape(intermediate_output, (intermediate_output.shape[0], 736))
 print intermediate_output.shape, Y_data.shape
 X_train, X_test, Y_train, Y_test = finishData(intermediate_output, Y_data)
-np.save('intermediate_encoding.npy', intermediate_output)
-np.save('intermediate_labels.npy', Y_data)
-coolmodel = coolModel_v2_6((736,))
+np.save('intermediate_encoding2.npy', intermediate_output)
+np.save('intermediate_labels2.npy', Y_data)
+coolmodel = coolModel_v2((736,))
 coolmodel.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 cb = [EarlyStopping(monitor='val_loss', min_delta=0, patience=2)]
 simple_history = coolmodel.fit(X_train, Y_train, batch_size=32, epochs=30, validation_split=.15, callbacks=cb, verbose=1)
@@ -316,10 +353,25 @@ plt.show()
 test_performance = coolmodel.evaluate(X_test, Y_test)
 print test_performance
 print 'saving...'
-coolmodel.save('coolmodelv7_model.h5')
-call(['mv', './coolmodelv7_model.h5', './coolmodelv3'])
+coolmodel.save('coolmodelv8_model.h5')
+call(['mv', './coolmodelv8_model.h5', './coolmodelv3'])
 
 #
+
+
+with CustomObjectScope({'tf': tf}):
+    cModel = load_model('./coolmodelv3/coolmodelv8_model.h5')
+
+X_test = np.append(np.load('./coolmodelv3/add_imgs.npy'), np.load('more_imgs.npy'), axis=0)
+Y_test = np.append(np.load('./coolmodelv3/add_labels.npy'), np.load('more_labels.npy'), axis=0)
+print X_test.shape, Y_test.shape
+intermediate_encoding = np.array([np.reshape(x, (-1, 96, 96, 3)) for x in X_test])
+intermediate_encoding = np.array([get_flatten_layer_output([x]) for x in intermediate_encoding])
+print intermediate_encoding.shape
+intermediate_encoding = np.reshape(intermediate_encoding, (intermediate_encoding.shape[0], 736))
+
+cModel.evaluate(x=intermediate_encoding, y=Y_test)
+
 
 #from https://github.com/obieda01/Deep-Learning-Specialization-Coursera/blob/master/Course%204%20-%20Convolutional%20Neural%20Networks/Week%204/Face%20Recognition/Face%20Recognition%20for%20the%20Happy%20House%20-%20%20v1.ipynb
 def triplet_loss(y_true, y_pred, alpha = 0.2):

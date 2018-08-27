@@ -14,6 +14,7 @@ import openface
 import dlib
 from skimage.util import random_noise
 import itertools
+from subprocess import call
 
 projectPath = "/Users/sidharthmenon/Desktop/Summer 2018/open-door/liveness-dataset/"
 
@@ -33,6 +34,19 @@ def toVertical(img, dir):
     else:
         img = cv2.transpose(img)
         if dir == "Right":
+            return cv2.flip(img, 0)
+        else:
+            return cv2.flip(img, 1)
+
+# converts takes image, corrects for direction
+def toVertical2(img, num):
+    if dir == 1:
+        return cv2.flip(img, -1)
+    elif dir == 2:
+        return img
+    else:
+        img = cv2.transpose(img)
+        if dir == 3:
             return cv2.flip(img, 0)
         else:
             return cv2.flip(img, 1)
@@ -341,11 +355,90 @@ def prepData_Specific_pt1(nickName, first_resize=None):
                             Y_data.append(yLabel)
                     cv2.destroyAllWindows()
                     cap.release()
-        fileName = "{0}.npz".format(nickName)
-        call(["touch", fileName])
         return map(np.asarray, (X_data, Y_data))
 
-def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, faceDetect=True, scale=1.0, align=False):
+
+def addNoise(img, numTimes):
+    tot = []
+    for i in xrange(numTimes):
+        tot.append(random_noise(img, mode='s&p', salt_vs_pepper=0.2))
+    return tot
+def addNoise2(img, numTimes, pNoise):
+    tot = []
+    for i in xrange(numTimes):
+        tot.append(random_noise(img, mode='s&p', amount=pNoise, salt_vs_pepper=0.2))
+    return tot
+
+def augmentData(X_data, Y_data, n, nickName):
+    add_imgs = []
+    add_labels = []
+    yEval = lambda s: 0 if 'fake' in s else 1
+    for fileName in os.listdir('./image-test'):
+        if not ('Store' in fileName):
+            yLabel = yEval(fileName)
+            img = cv2.imread('./image-test/{0}'.format(fileName), 1)
+            if yLabel == 1 or 'IMG' in fileName:
+                img = toVertical(img, 'Left')
+            img = cv2.resize(img, (150, 150), interpolation=cv2.INTER_CUBIC)
+            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
+            if not (face is None):
+                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+                add_imgs = add_imgs + addNoise(face, n)
+                add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    add_imgs = np.array(add_imgs)
+    add_labels = np.array(add_labels)
+    np.save('./add_imgs2.npy', add_imgs)
+    call(['mv', './add_imgs2.npy', './{0}'.format(nickName)])
+    np.save('./add_labels2.npy', add_labels)
+    call(['mv', './add_labels2.npy', './{0}'.format(nickName)])
+    print add_imgs.shape
+    print add_labels.shape
+    return np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)
+
+def augmentData2(n, pNoise, nickName):
+    add_imgs = []
+    add_labels = []
+    for fileName in os.listdir('./real'):
+        if not ('Store' in fileName):
+            yLabel = 1
+            img = cv2.imread('./real/{0}'.format(fileName), 1)
+            img = cv2.resize(img, (150, 150), interpolation=cv2.INTER_CUBIC)
+            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
+            if not (face is None):
+                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+                add_imgs = add_imgs + addNoise2(face, n, pNoise)
+                add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    for fileName in os.listdir('./fake'):
+        if not ('Store' in fileName):
+            yLabel = 0
+            img = cv2.imread('./fake/{0}'.format(fileName), 1)
+            img = cv2.resize(img, (150, 150), interpolation=cv2.INTER_CUBIC)
+            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
+            if not (face is None):
+                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+                add_imgs = add_imgs + addNoise2(face, n, pNoise)
+                add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    add_imgs = np.array(add_imgs)
+    add_labels = np.array(add_labels)
+    np.save('./more_imgs2.npy', add_imgs)
+    call(['mv', './more_imgs2.npy', './{0}'.format(nickName)])
+    np.save('./more_labels2.npy', add_labels)
+    call(['mv', './more_labels2.npy', './{0}'.format(nickName)])
+    print add_imgs.shape
+    print add_labels.shape
+    return add_imgs, add_labels
+
+
+def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, faceDetect=True, scale=1.0, align=False, randomize=False):
     rawImgs = []
     rawImg_Labels = []
     assert ((fileName is None) != ((rx is None) and (ry is None)))
@@ -370,6 +463,8 @@ def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, fa
                 bb = dlib.rectangle(0, 0, 96, 96)
                 face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
                 face = np.around(face/255.0, decimals=12)
+            if randomize:
+                face = toVertical2(face, random.randint(1, 5))
             X_data.append(face)
             Y_data.append(yLabel)
         else:
@@ -381,80 +476,6 @@ def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, fa
 facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
 prepData_Specific_pt2.align = openface.AlignDlib(facePredictor)
 
-def addNoise(img, numTimes):
-    tot = []
-    for i in xrange(numTimes):
-        tot.append(random_noise(img, mode='s&p', salt_vs_pepper=0.2))
-    return tot
-def addNoise2(img, numTimes, pNoise):
-    tot = []
-    for i in xrange(numTimes):
-        tot.append(random_noise(img, mode='s&p', amount=pNoise, salt_vs_pepper=0.2))
-    return tot
-
-def augmentData(X_data, Y_data, n):
-    add_imgs = []
-    add_labels = []
-    yEval = lambda s: 0 if 'fake' in s else 1
-    for fileName in os.listdir('./image-test'):
-        if not ('Store' in fileName):
-            yLabel = yEval(fileName)
-            img = cv2.imread('./image-test/{0}'.format(fileName), 1)
-            if yLabel == 1 or 'IMG' in fileName:
-                img = toVertical(img, 'Left')
-            img = cv2.resize(img, (240, 240), interpolation=cv2.INTER_CUBIC)
-            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
-            if not (face is None):
-                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
-                bb = dlib.rectangle(0, 0, 96, 96)
-                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-                face = np.around(face/255.0, decimals=12)
-                add_imgs = add_imgs + addNoise(face, n)
-                add_labels = add_labels + list(itertools.repeat(yLabel, n))
-    add_imgs = np.array(add_imgs)
-    add_labels = np.array(add_labels)
-    np.save('./add_imgs.npy', add_imgs)
-    np.save('./add_labels.npy', add_labels)
-    print add_imgs.shape
-    print add_labels.shape
-    return np.append(X_data, add_imgs, axis=0), np.append(Y_data, add_labels, axis=0)
-
-def augmentData2(n, pNoise):
-    add_imgs = []
-    add_labels = []
-    for fileName in os.listdir('./real'):
-        if not ('Store' in fileName):
-            yLabel = 1
-            img = cv2.imread('./real/{0}'.format(fileName), 1)
-            img = cv2.resize(img, (240, 240), interpolation=cv2.INTER_CUBIC)
-            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
-            if not (face is None):
-                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
-                bb = dlib.rectangle(0, 0, 96, 96)
-                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-                face = np.around(face/255.0, decimals=12)
-                add_imgs = add_imgs + addNoise2(face, n, pNoise)
-                add_labels = add_labels + list(itertools.repeat(yLabel, n))
-    for fileName in os.listdir('./fake'):
-        if not ('Store' in fileName):
-            yLabel = 0
-            img = cv2.imread('./fake/{0}'.format(fileName), 1)
-            img = cv2.resize(img, (240, 240), interpolation=cv2.INTER_CUBIC)
-            face = cnnDetect(img, equalize_hist=True, faceDetect=True, scale_factor=1.34)
-            if not (face is None):
-                face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
-                bb = dlib.rectangle(0, 0, 96, 96)
-                face = prepData_Specific_pt2.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-                face = np.around(face/255.0, decimals=12)
-                add_imgs = add_imgs + addNoise2(face, n, pNoise)
-                add_labels = add_labels + list(itertools.repeat(yLabel, n))
-    add_imgs = np.array(add_imgs)
-    add_labels = np.array(add_labels)
-    np.save('./more_imgs.npy', add_imgs)
-    np.save('./more_labels.npy', add_labels)
-    print add_imgs.shape
-    print add_labels.shape
-    return add_imgs, add_labels
 
 
 
