@@ -198,10 +198,10 @@ NoAlign.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy
 print "loading data pt1"
 rawData, rawLabels = np.load('./150_Data/150_Imgs.npy'), np.load('./150_Data/150_Labels.npy')
 print rawData.shape, rawLabels.shape
-nickName = '150-Cool-v2'
+nickName = '150-v4'
 call(['mkdir', '{0}'.format(nickName)])
 print 'prepping Data'
-X_data, Y_data, NoFaceData, NoFaceData_Labels = prepData_Specific_pt2(rx=rawData, ry=rawLabels, histEqualize=True, faceDetect=True, scale=1.34, align=False)
+X_data, Y_data, NoFaceData, NoFaceData_Labels = prepData_Specific_pt2(rx=rawData, ry=rawLabels, histEqualize=True, faceDetect=True, scale=1.34, align=True)
 X_data, Y_data, NoFaceData, NoFaceData_Labels = map(np.array, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
 print X_data.shape, Y_data.shape
 print NoFaceData.shape, NoFaceData_Labels.shape
@@ -253,12 +253,12 @@ call(['mv', './{0}_model.h5'.format(nickName), './{0}'.format(nickName)])
 
 NoAlign = coolModel_v2((736,))
 NoAlign.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-nickName = '150-Cool-Randomized-v3'
+nickName = '150-v4-random'
 call(['mkdir', '{0}'.format(nickName)])
 rawData, rawLabels = np.load('./150_Data/150_Imgs.npy'), np.load('./150_Data/150_Labels.npy')
 print rawData.shape, rawLabels.shape
 print 'prepping Data'
-X_data, Y_data, NoFaceData, NoFaceData_Labels = prepData_Specific_pt2(rx=rawData, ry=rawLabels, histEqualize=True, faceDetect=True, scale=1.34, align=False, randomize=True)
+X_data, Y_data, NoFaceData, NoFaceData_Labels = prepData_Specific_pt2(rx=rawData, ry=rawLabels, histEqualize=True, faceDetect=True, scale=1.34, align=True, randomize=True)
 X_data, Y_data, NoFaceData, NoFaceData_Labels = map(np.array, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
 print X_data.shape, Y_data.shape
 print NoFaceData.shape, NoFaceData_Labels.shape
