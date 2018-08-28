@@ -7,7 +7,7 @@ from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 import resource
-from openfacetests import cropFace, cnnDetect
+from openfacetests import cropFace, cnnDetect, haarDetect, hogDetect
 import random
 from subprocess import call
 import openface
@@ -438,6 +438,50 @@ def augmentData2(n, pNoise, nickName):
     return add_imgs, add_labels
 
 
+def process_image(img, detectionMethod='hog'):
+    img = cv2.resize(img, (150, 150), interpolation=cv2.INTER_AREA)
+    if detectionMethod == 'cnn':
+        face = cnnDetect(img, scale_factor=1.34)
+    elif detectionMethod == 'haar':
+        face = haarDetect(img,  scale_factor=1.34)
+    else:
+        face = hogDetect(img,  scale_factor=1.34)
+    if not (face is None):
+        face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+        bb = dlib.rectangle(0, 0, 96, 96)
+        face = process_image.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+        face = np.around(face/255.0, decimals=12)
+    return face
+
+facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
+process_image.align = openface.AlignDlib(facePredictor)
+
+def augmentData3(n, pNoise=None, detectionMethod='hog'):
+    add_imgs = []
+    add_labels = []
+    yEval = lambda s, f: 0 if (('fake' in s) and (f=='./image-test')) or (f == './fake') else 1
+    dir = ['./image-test', './real', './fake']
+    for folder in dir:
+        for fileName in os.listdir('./{0}'.format(folder)):
+            if not ('Store' in fileName):
+                yLabel = yEval(fileName, folder)
+                img = cv2.imread('./{0}/{1}'.format(folder, fileName), 1)
+                if yLabel == 1 or 'IMG' in fileName:
+                    img = toVertical(img, 'Left')
+                face = process_image(img, detectionMethod=detectionMethod)
+                if not (face is None):
+                    if folder == './image-test':
+                        add_imgs = add_imgs + addNoise(face, n)
+                    else:
+                        add_imgs = add_imgs + addNoise2(face, n, pNoise)
+                    add_labels = add_labels + list(itertools.repeat(yLabel, n))
+    add_imgs = np.array(add_imgs)
+    add_labels = np.array(add_labels)
+    print add_imgs.shape
+    print add_labels.shape
+    return add_imgs, add_labels
+
+
 def prepData_Specific_pt2(fileName=None, rx=None, ry=None, histEqualize=True, faceDetect=True, scale=1.0, align=False, randomize=False):
     rawImgs = []
     rawImg_Labels = []
@@ -477,16 +521,43 @@ facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_fa
 prepData_Specific_pt2.align = openface.AlignDlib(facePredictor)
 
 
+def prepData_Specific_pt3(fileName=None, rx=None, ry=None, histEqualize=True, faceDetect=True, scale=1.0, align=False, randomize=False):
+    rawImgs = []
+    rawImg_Labels = []
+    assert ((fileName is None) != ((rx is None) and (ry is None)))
+    if fileName is None:
+        rawImgs = rx
+        rawImg_Labels = ry
+    else:
+        npz_file = np.load(fileName)
+        rawImgs = npz_file['rx']
+        rawImg_Labels = npz_file['ry']
+    X_data = []
+    Y_data = []
+    NoFaceData = []
+    NoFaceData_Labels = []
+    for i in range(rawImgs.shape[0]):
+        frame = rawImgs[i, ::]
+        face = hogDetect(frame, equalize_hist=histEqualize, faceDetect=faceDetect, scale_factor=scale)
+        yLabel = rawImg_Labels[i]
+        if not (face is None):
+            face = cv2.resize(face, (96, 96), interpolation=cv2.INTER_AREA)
+            if align:
+                bb = dlib.rectangle(0, 0, 96, 96)
+                face = prepData_Specific_pt3.align.align(96, face, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
+                face = np.around(face/255.0, decimals=12)
+            if randomize:
+                face = toVertical2(face, random.randint(1, 5))
+            X_data.append(face)
+            Y_data.append(yLabel)
+        else:
+            frame = cv2.resize(frame, (96, 96), interpolation=cv2.INTER_CUBIC)
+            NoFaceData.append(frame)
+            NoFaceData_Labels.append(yLabel)
+    return map(np.asarray, (X_data, Y_data, NoFaceData, NoFaceData_Labels))
 
-
-def process_image(img1):
-    bb = dlib.rectangle(0, 0, 96, 96)
-    img1 = img_to_encoding.align.align(96, img1, bb, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
-    img = img1[...,::-1]
-    img = np.around(img/255.0, decimals=12)
-    img = np.array([img])
-    return img
-
+facePredictor = '/Users/sidharthmenon/openface/models/dlib/shape_predictor_68_face_landmarks.dat'
+prepData_Specific_pt3.align = openface.AlignDlib(facePredictor)
 
 def shuffle_in_unison(x, y):
     state = np.random.get_state()

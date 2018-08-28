@@ -25,8 +25,10 @@ with CustomObjectScope({'tf': tf}):
 # In[ ]:
 
 
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+haar_face_detector = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 cnn_face_detector = dlib.cnn_face_detection_model_v1('./mmod_human_face_detector.dat')
+hog_face_detector = dlib.get_frontal_face_detector()
+
 
 # In[97]:
 
@@ -90,6 +92,14 @@ def toCVFormat2(face_list):
         newList.append((x, y, faces.rect.right() - x, faces.rect.bottom() - y))
     return newList
 
+def toCVFormat(face_list):
+    newList = []
+    for faces in face_list:
+        x = faces.left()
+        y = faces.top()
+        newList.append((x, y, faces.right() - x, faces.bottom() - y))
+    return newList
+
 adam= optimizers.Adam()
 model.compile(optimizer='adam', loss=triplet_loss, metrics = ['accuracy'])
 
@@ -100,12 +110,49 @@ def histEqualize(img):
     return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
 
+
+
+def hogDetect(img, faceDetect=True, equalize_hist=True, scale_factor=1.0):
+    if equalize_hist:
+        img = histEqualize(img)
+    if faceDetect:
+        face_list = hog_face_detector(img, 1)
+        face_boxes = toCVFormat(face_list)
+        face_areas = [w*h for x, y, w, h in face_boxes]
+        if len(face_areas) != 0:
+            x, y, w, h = fitToImg(face_boxes[face_areas.index(max(face_areas))],
+                img.shape, scale=scale_factor)
+            crop = img[int(y):int(y + h), int(x):int(x + w), :]
+            return crop
+        else:
+            return None
+    else:
+        return img
+
 def cnnDetect(img, faceDetect=True, equalize_hist=True, scale_factor=1.0):
     if equalize_hist:
         img = histEqualize(img)
     if faceDetect:
         face_list = cnn_face_detector(img, 1)
         face_boxes = toCVFormat2(face_list)
+        face_areas = [w*h for x, y, w, h in face_boxes]
+        if len(face_areas) != 0:
+            x, y, w, h = fitToImg(face_boxes[face_areas.index(max(face_areas))],
+                img.shape, scale=scale_factor)
+            crop = img[int(y):int(y + h), int(x):int(x + w), :]
+            return crop
+        else:
+            return None
+    else:
+        return img
+
+
+def haarDetect(img, faceDetect=True, equalize_hist=True, scale_factor=1.0):
+    if equalize_hist:
+        img = histEqualize(img)
+    if faceDetect:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        face_boxes = haar_face_detector.detectMultiScale(gray, 1.3, 5)
         face_areas = [w*h for x, y, w, h in face_boxes]
         if len(face_areas) != 0:
             x, y, w, h = fitToImg(face_boxes[face_areas.index(max(face_areas))],
@@ -260,6 +307,7 @@ def who_is_it(image_path, database, model):
         print ("it's " + str(identity) + ", the distance is " + str(min_dist))
     print "Face identification took %s secs" % (time.time() - start)
     return min_dist, identity
+
 
 
 # In[124]:
